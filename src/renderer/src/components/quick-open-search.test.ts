@@ -199,3 +199,71 @@ describe('quick-open-search', () => {
     ])
   })
 })
+
+it('matches independent unique terms in either order in streaming and indexed searches', () => {
+  const paths = ['apps/api/.env', 'apps/web/.env', 'apps/api/server.ts']
+  const indexed = prepareQuickOpenFiles(paths)
+  const expected = rankQuickOpenFiles('.env api', indexed)
+  expect(expected.map((item) => item.path)).toEqual(['apps/api/.env'])
+  for (const query of ['api .env', '  API\t.env\napi  ']) {
+    expect(rankQuickOpenFiles(query, indexed)).toEqual(expected)
+    const ranker = new QuickOpenPathRanker(query, 50)
+    paths.forEach((path) => ranker.consider(path))
+    expect(ranker.result()).toEqual({ paths: ['apps/api/.env'], totalCount: 1 })
+  }
+})
+
+it('rejects more than 32 unique terms but permits duplicates', () => {
+  const paths = prepareQuickOpenFiles(['a'.repeat(40)])
+  expect(
+    rankQuickOpenFiles(Array.from({ length: 33 }, (_, i) => `a${i}`).join(' '), paths)
+  ).toEqual([])
+  expect(rankQuickOpenFiles(Array(40).fill('a').join(' '), paths)).toEqual(
+    rankQuickOpenFiles('a', paths)
+  )
+})
+
+it('matches separator variants while preferring the separator typed', () => {
+  const paths = prepareQuickOpenFiles([
+    'src/product_detail.ts',
+    'src/product-detail.ts',
+    'src/ProductDetail.ts'
+  ])
+  expect(rankQuickOpenFiles('product-detail', paths).map((item) => item.path)).toEqual([
+    'src/product-detail.ts',
+    'src/product_detail.ts',
+    'src/ProductDetail.ts'
+  ])
+  expect(rankQuickOpenFiles('product_detail', paths).map((item) => item.path)).toEqual([
+    'src/product_detail.ts',
+    'src/product-detail.ts',
+    'src/ProductDetail.ts'
+  ])
+  expect(rankQuickOpenFiles('product detail', paths).map((item) => item.path)).toHaveLength(3)
+})
+
+it('retains legitimate negative-one scores', () => {
+  expect(rankQuickOpenFiles('ab', prepareQuickOpenFiles(['x/a1234b.txt']))).toEqual([
+    { path: 'x/a1234b.txt', score: -1 }
+  ])
+})
+
+it('bridges camel and acronym word boundaries for typed separators without matching flat words', () => {
+  const files = prepareQuickOpenFiles([
+    'src/ProductDetail.ts',
+    'src/productdetail.ts',
+    'src/HTTPServer.ts',
+    'src/Product Detail.ts'
+  ])
+  expect(
+    rankQuickOpenFiles('product_detail', files)
+      .map((item) => item.path)
+      .sort()
+  ).toEqual(['src/Product Detail.ts', 'src/ProductDetail.ts'])
+  expect(rankQuickOpenFiles('http-server', files).map((item) => item.path)).toEqual([
+    'src/HTTPServer.ts'
+  ])
+  expect(rankQuickOpenFiles('product-', files).map((item) => item.path)).toContain(
+    'src/ProductDetail.ts'
+  )
+})
