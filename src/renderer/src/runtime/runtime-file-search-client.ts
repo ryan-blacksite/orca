@@ -1,5 +1,6 @@
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import { throwIfSignalAborted, waitForPromiseWithSignal } from '../../../shared/abort-signal-reason'
+import { QUICK_OPEN_SEARCH_VERSION } from '../../../shared/quick-open-path-search'
 import type { SearchOptions, SearchResult } from '../../../shared/code-search-types'
 import type { RuntimeFileListResult } from '../../../shared/runtime-types'
 import {
@@ -64,6 +65,8 @@ export async function listRuntimeFiles(
   context: RuntimeFileOperationArgs,
   args: {
     rootPath: string
+    includeIgnored?: boolean
+    followSymlinks?: boolean
     excludePaths?: string[]
     requestToken?: string
     // Why: naming the cap is what makes a full page readable as "there is more". The host returns
@@ -78,6 +81,8 @@ export async function listRuntimeFiles(
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId) {
     return window.api.fs.listFiles({
+      ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
+      ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
       rootPath: args.rootPath,
       connectionId: context.connectionId,
       excludePaths: args.excludePaths,
@@ -86,11 +91,34 @@ export async function listRuntimeFiles(
       ...(args.nameFilter && !context.connectionId ? { nameFilter: args.nameFilter } : {})
     })
   }
+  if (args.includeIgnored === false || args.followSymlinks) {
+    const capability = await callRuntimeRpc<RuntimeFileListResult>(
+      target,
+      'files.searchPaths',
+      {
+        worktree: toRuntimeWorktreeSelector(context.worktreeId),
+        query: '',
+        limit: 1,
+        mode: 'quick-open'
+      },
+      { timeoutMs: 5_000, signal: args.signal }
+    )
+    if (
+      !(
+        typeof capability.quickOpenSearchVersion === 'number' &&
+        capability.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
+      )
+    ) {
+      throw new Error('Update the remote host to use Quick Open listing options.')
+    }
+  }
   return callRuntimeRpc<string[]>(
     target,
     'files.listAll',
     {
       worktree: toRuntimeWorktreeSelector(context.worktreeId),
+      ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
+      ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
       excludePaths: args.excludePaths,
       // Optional on the host schema since #17954; an older host strips it and keeps its own default.
       ...(args.maxResults === undefined ? {} : { maxResults: args.maxResults })
@@ -104,6 +132,8 @@ export async function searchRuntimeFilePaths(
   args: {
     query: string
     limit?: number
+    includeIgnored?: boolean
+    followSymlinks?: boolean
     excludePaths?: string[]
     requestToken?: string
     signal?: AbortSignal
@@ -121,6 +151,8 @@ export async function searchRuntimeFilePaths(
       excludePaths: args.excludePaths,
       requestToken: args.requestToken,
       maxResults: limit + 1,
+      ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
+      ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
       searchQuery: args.query
     })
     return { files: files.slice(0, limit), truncated: files.length > limit }
@@ -131,6 +163,9 @@ export async function searchRuntimeFilePaths(
   const worktreeSelector = toRuntimeWorktreeSelector(context.worktreeId)
   const limit = args.limit ?? 32
   if (hasCachedLegacyQuickOpenInventory(target, worktreeSelector, context.worktreePath)) {
+    if (args.includeIgnored === false || args.followSymlinks) {
+      throw new Error('Update the remote host to use Quick Open listing options.')
+    }
     return searchLegacyQuickOpenInventory({
       target,
       worktreeSelector,
@@ -151,12 +186,17 @@ export async function searchRuntimeFilePaths(
         query: args.query,
         limit,
         excludePaths: args.excludePaths,
+        ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
+        ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
         mode: 'quick-open'
       },
       { timeoutMs: 15_000, ...(args.signal === undefined ? {} : { signal: args.signal }) }
     )
   } catch (error) {
     if (error instanceof RuntimeRpcCallError && error.code === 'method_not_found') {
+      if (args.includeIgnored === false || args.followSymlinks) {
+        throw new Error('Update the remote host to use Quick Open listing options.')
+      }
       try {
         return await searchLegacyQuickOpenInventory({
           target,
@@ -177,8 +217,20 @@ export async function searchRuntimeFilePaths(
     throw error
   }
   if (
-    args.excludePaths?.length &&
-    !(typeof result.quickOpenSearchVersion === 'number' && result.quickOpenSearchVersion >= 1)
+    (args.includeIgnored === false || args.followSymlinks) &&
+    !(
+      typeof result.quickOpenSearchVersion === 'number' &&
+      result.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
+    )
+  ) {
+    throw new Error('Update the remote host to use Quick Open listing options.')
+  }
+  if (
+    (args.excludePaths?.length || /[\s_-]/.test(args.query.trim())) &&
+    !(
+      typeof result.quickOpenSearchVersion === 'number' &&
+      result.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
+    )
   ) {
     try {
       return await searchLegacyQuickOpenInventory({

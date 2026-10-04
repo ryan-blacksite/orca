@@ -28,6 +28,8 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
         requestToken?: string
         maxResults?: number
         searchQuery?: string
+        includeIgnored?: boolean
+        followSymlinks?: boolean
         /** Local only: keep paths containing every whitespace-separated word, like the Explorer filter. */
         nameFilter?: string
       }
@@ -40,6 +42,12 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
           if (!provider) {
             return []
           }
+          if (
+            (args.includeIgnored === false || args.followSymlinks) &&
+            !(await provider.supportsQuickOpenSearch?.({ signal: controller?.signal }))
+          ) {
+            throw new Error('Update the remote host to use Quick Open listing options.')
+          }
           // Why: forward excludePaths or nested linked worktrees get double-scanned over SSH, causing timeout-induced partial results.
           if (
             args.searchQuery !== undefined &&
@@ -48,6 +56,8 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
           ) {
             const legacyFiles = await provider.listFiles(args.rootPath, {
               excludePaths: args.excludePaths,
+              ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
+              ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
               maxResults: QUICK_OPEN_SSH_LEGACY_RESULT_LIMIT,
               signal: controller?.signal
             })
@@ -62,6 +72,8 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
           }
           return await provider.listFiles(args.rootPath, {
             excludePaths: args.excludePaths,
+            ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
+            ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
             ...(args.maxResults === undefined ? {} : { maxResults: args.maxResults }),
             ...(args.searchQuery === undefined ? {} : { searchQuery: args.searchQuery }),
             signal: controller?.signal
@@ -80,7 +92,8 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
           undefined,
           nameFilterTokens.length > 0
             ? (relativePath) => pathMatchesFileNameFilterTokens(relativePath, nameFilterTokens)
-            : undefined
+            : undefined,
+          { includeIgnored: args.includeIgnored, followSymlinks: args.followSymlinks }
         )
       } finally {
         listFilesCancellations.finish(event, args.requestToken, controller)

@@ -45,6 +45,8 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
   async listRuntimeFiles(
     worktreeSelector: string,
     options: {
+      includeIgnored?: boolean
+      followSymlinks?: boolean
       excludePaths?: string[]
       maxContentBytes?: number
       maxResults?: number
@@ -64,6 +66,8 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
         (options.maxContentBytes === undefined ? undefined : QUICK_OPEN_LISTING_MAX_RESULTS)
       const files = await provider.listFiles(target.worktree.path, {
         excludePaths: options.excludePaths,
+        includeIgnored: options.includeIgnored,
+        followSymlinks: options.followSymlinks,
         maxResults,
         signal: options.signal
       })
@@ -77,7 +81,9 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
       options.excludePaths,
       options.signal,
       options.maxResults,
-      options.maxContentBytes
+      options.maxContentBytes,
+      undefined,
+      options
     )
   }
 

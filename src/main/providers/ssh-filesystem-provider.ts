@@ -100,8 +100,8 @@ export class SshFilesystemProvider implements IFilesystemProvider {
     return this.connectionId
   }
 
-  async readDir(dirPath: string): Promise<DirEntry[]> {
-    return readSshDirectoryWithSftpFallback(this.mux, dirPath, this.createSftp)
+  async readDir(dirPath: string, options?: { followSymlinks?: boolean }): Promise<DirEntry[]> {
+    return readSshDirectoryWithSftpFallback(this.mux, dirPath, this.createSftp, options)
   }
 
   async readFile(filePath: string, limits?: FileReadLimits): Promise<FileReadResult> {

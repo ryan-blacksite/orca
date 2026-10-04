@@ -35,6 +35,16 @@ export function useFileExplorerTreeLoadEffects({
   resetSelection,
   setNameFilterQuery
 }: UseFileExplorerTreeLoadEffectsParams): void {
+  const followSymlinks = useAppStore((s) => s.settings?.followSymlinkedDirectories ?? false)
+  const lastFollowSymlinks = useRef(followSymlinks)
+  useEffect(() => {
+    if (lastFollowSymlinks.current !== followSymlinks) {
+      lastFollowSymlinks.current = followSymlinks
+      if (visibleFilesWorktreePath) {
+        resetAndLoad()
+      }
+    }
+  }, [followSymlinks, visibleFilesWorktreePath, resetAndLoad])
   const sshConnectedGeneration = useAppStore((s) => s.sshConnectedGeneration)
 
   const lastResetWorktreePathRef = useRef<string | null>(null)

@@ -117,6 +117,15 @@ export const getTypographyEntries = createLocalizedCatalog((): SettingsSearchEnt
   }
 ])
 
+export const getFollowSymlinkedDirectoriesEntry = (): SettingsSearchEntry => ({
+  title: translate('settings.followSymlinkedDirectories', 'Follow symlinked directories'),
+  description: translate(
+    'settings.followSymlinkedDirectoriesDescription',
+    'Include linked folders in Quick Open and File Explorer. May request filesystem permissions.'
+  ),
+  keywords: ['symlink', 'linked folder', 'quick open', 'file explorer']
+})
+
 export const getLayoutEntries = createLocalizedCatalog((): SettingsSearchEntry[] => [
   {
     title: translate(
@@ -141,7 +150,8 @@ export const getLayoutEntries = createLocalizedCatalog((): SettingsSearchEntry[]
       ...translateSearchKeyword('auto.components.settings.appearance.search.5bff6a2ef0', 'sidebar'),
       ...translateSearchKeyword('auto.components.settings.appearance.search.648eeada79', 'hide')
     ]
-  }
+  },
+  getFollowSymlinkedDirectoriesEntry()
 ])
 
 export const getTitlebarEntries = createLocalizedCatalog((): SettingsSearchEntry[] => [

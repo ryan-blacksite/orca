@@ -248,7 +248,9 @@
         "title": "Warn when a Codex tab shares a server",
         "description": "Shows a notice on a Codex you started yourself when it shares a server with other tabs, because its agent status may be wrong."
       }
-    }
+    },
+    "followSymlinkedDirectories": "Follow symlinked directories",
+    "followSymlinkedDirectoriesDescription": "Include linked folders in Quick Open and File Explorer. May request filesystem permissions."
   },
   "menu": {
     "checkForUpdates": "Check for Updates...",

@@ -1,3 +1,4 @@
+import { useAppStore } from '@/store'
 import { getRelativePathInsideRoot, joinPath } from '@/lib/path'
 import type { DirEntry } from '../../../../shared/filesystem-entry-types'
 import { sortDirEntries } from '../../../../shared/file-name-sort'
@@ -53,10 +54,20 @@ export async function readFileExplorerDirectory(
       worktreePath,
       connectionId: route.connectionId
     },
-    dirPath
+    dirPath,
+    { followSymlinks: useAppStore.getState().settings?.followSymlinkedDirectories ?? false }
   )
   // Why: remote-runtime and paired-web routes return the host's order verbatim,
   // and an older host may still sort lexicographically; re-sorting an already
   // sorted local listing is near-free (adaptive sort).
-  return { entries: sortDirEntries(entries), operationOwner }
+  return {
+    entries: sortDirEntries(
+      entries.map((entry) =>
+        entry.isSymlink && !useAppStore.getState().settings?.followSymlinkedDirectories
+          ? { ...entry, isDirectory: false }
+          : entry
+      )
+    ),
+    operationOwner
+  }
 }

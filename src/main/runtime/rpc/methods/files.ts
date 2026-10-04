@@ -45,7 +45,8 @@ export const FILE_METHODS = [
           params.query,
           params.limit,
           params.excludePaths,
-          signal
+          signal,
+          { includeIgnored: params.includeIgnored, followSymlinks: params.followSymlinks }
         )),
         quickOpenSearchVersion: QUICK_OPEN_SEARCH_VERSION
       }
@@ -131,7 +132,11 @@ export const FILE_METHODS = [
     name: 'files.readDir',
     params: FileTreePath,
     handler: async (params, { runtime }) =>
-      runtime.readFileExplorerDir(params.worktree, params.relativePath)
+      params.followSymlinks === undefined
+        ? runtime.readFileExplorerDir(params.worktree, params.relativePath)
+        : runtime.readFileExplorerDir(params.worktree, params.relativePath, {
+            followSymlinks: params.followSymlinks
+          })
   }),
   defineMethod({
     name: 'files.browseServerDir',
@@ -164,6 +169,8 @@ export const FILE_METHODS = [
       const maxContentBytes = remoteFileContentBudget(clientKind, requestId)
       return runtime.listRuntimeFiles(params.worktree, {
         excludePaths: params.excludePaths,
+        ...(params.includeIgnored === undefined ? {} : { includeIgnored: params.includeIgnored }),
+        ...(params.followSymlinks === undefined ? {} : { followSymlinks: params.followSymlinks }),
         ...(params.maxResults === undefined ? {} : { maxResults: params.maxResults }),
         ...(signal === undefined ? {} : { signal }),
         ...(maxContentBytes === undefined ? {} : { maxContentBytes })

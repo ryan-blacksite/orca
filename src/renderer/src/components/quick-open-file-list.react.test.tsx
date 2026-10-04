@@ -234,6 +234,8 @@ describe('useRuntimeFileListForWorktree', () => {
         settings: expect.objectContaining({ activeRuntimeEnvironmentId: null })
       }),
       {
+        includeIgnored: true,
+        followSymlinks: false,
         rootPath: '/srv/platform',
         excludePaths: undefined,
         requestToken: expect.any(String),
@@ -436,6 +438,8 @@ describe('useRuntimeFileListForWorktree', () => {
           worktreePath: '/srv/remote'
         }),
         {
+          includeIgnored: true,
+          followSymlinks: false,
           query: 'sta-4354-target',
           limit: 32,
           excludePaths: undefined,
@@ -453,7 +457,7 @@ describe('useRuntimeFileListForWorktree', () => {
     }
   })
 
-  it('does not request a remote inventory for an empty query', async () => {
+  it('loads a bounded remote inventory for empty-query history', async () => {
     seedRemoteWorktree()
 
     const states: RuntimeFileListState[] = []
@@ -465,8 +469,12 @@ describe('useRuntimeFileListForWorktree', () => {
     })
 
     expect(searchRuntimeFilePathsMock).not.toHaveBeenCalled()
-    expect(listRuntimeFilesMock).not.toHaveBeenCalled()
-    expect(states.at(-1)).toMatchObject({ files: [], loading: false, truncated: false })
+    expect(listRuntimeFilesMock).toHaveBeenCalledOnce()
+    expect(states.at(-1)).toMatchObject({
+      files: ['packages/app/package.json'],
+      loading: false,
+      truncated: false
+    })
   })
 
   it('does not send oversized remote queries', async () => {
@@ -517,7 +525,11 @@ describe('useRuntimeFileListForWorktree', () => {
       await flushEffects()
 
       expect(searchRuntimeFilePathsMock).toHaveBeenCalledTimes(1)
-      expect(states.at(-1)).toMatchObject({ files: [], loading: false, truncated: false })
+      expect(states.at(-1)).toMatchObject({
+        files: ['packages/app/package.json'],
+        loading: false,
+        truncated: false
+      })
     } finally {
       vi.useRealTimers()
     }

@@ -1,5 +1,6 @@
 import { readRelayDirectoryBounded } from './fs-directory-listing'
 import { listRelayMarkdownDocuments } from './fs-markdown-document-listing'
+import { QUICK_OPEN_SEARCH_VERSION } from '../shared/quick-open-path-search'
 import { pathsExistOnRelay } from './fs-path-existence'
 import { tmpdir } from 'node:os'
 import type { RelayDispatcher, RequestContext } from './dispatcher'
@@ -86,7 +87,9 @@ export class FsHandler {
       if (typeof p.dirPath !== 'string') {
         throw new Error('Invalid directory path')
       }
-      const entries = await readRelayDirectoryBounded(p.dirPath, c?.signal)
+      const entries = await readRelayDirectoryBounded(p.dirPath, c?.signal, {
+        followSymlinks: typeof p.followSymlinks === 'boolean' ? p.followSymlinks : undefined
+      })
       return this.responseStreams
         ? maybeStreamRpcResponse(entries, p, c, this.responseStreams, this.dispatcher)
         : entries
@@ -114,7 +117,7 @@ export class FsHandler {
     this.dispatcher.onRequest('fs.realpath', (p) => realpathRelayPath(p))
     this.dispatcher.onRequest('fs.search', (p, context) => this.search(p, context))
     this.dispatcher.onRequest('fs.getCapabilities', async () => ({
-      quickOpenSearchVersion: 1,
+      quickOpenSearchVersion: QUICK_OPEN_SEARCH_VERSION,
       rangedReadVersion: 1,
       pathExistenceBatchVersion: 1
     }))
@@ -259,16 +262,24 @@ export class FsHandler {
     // don't get double-scanned. The shared helper validates the shape and
     // normalizes into root-relative prefixes; malformed input yields [] so
     // the request still succeeds (older apps omit the field entirely).
+    const options = {
+      ...(typeof params.includeIgnored === 'boolean'
+        ? { includeIgnored: params.includeIgnored }
+        : {}),
+      ...(typeof params.followSymlinks === 'boolean'
+        ? { followSymlinks: params.followSymlinks }
+        : {})
+    }
     const excludePathPrefixes = buildExcludePathPrefixes(rootPath, params.excludePaths)
     // Why #7721: full-tree scans are the relay's most expensive request; the
     // coordinator caps them at one per client, coalescing duplicates and
     // aborting a stale scan when the workspace changes or the host cancels.
     const files = await this.listFilesScans.run({
       clientId: context?.clientId ?? 0,
-      key: JSON.stringify([rootPath, excludePathPrefixes, maxResults, searchQuery]),
+      key: JSON.stringify([rootPath, excludePathPrefixes, maxResults, searchQuery, options]),
       signal: context?.signal,
       start: (signal) =>
-        runListFilesScan(rootPath, excludePathPrefixes, signal, maxResults, searchQuery)
+        runListFilesScan(rootPath, excludePathPrefixes, signal, maxResults, searchQuery, options)
     })
     // Why: a full listing of a real monorepo serializes past the 1 MiB control lane — Orca's own
     // checkout is 22.6k paths averaging 58 characters, so a 20,001-row page is ~1.2MB — and the

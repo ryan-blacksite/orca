@@ -129,7 +129,8 @@ export class RuntimeFileCommandsWithConstructor extends RuntimeFileCommandsWithA
     query: string,
     limit: number,
     excludePaths?: string[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    options: { includeIgnored?: boolean; followSymlinks?: boolean } = {}
   ): Promise<RuntimeFileListResult> {
     const target = await this.host.resolveRuntimeFileTarget(worktreeSelector)
     const { worktree } = target
@@ -144,9 +145,11 @@ export class RuntimeFileCommandsWithConstructor extends RuntimeFileCommandsWithA
               query,
               limit,
               excludePaths,
-              signal
+              signal,
+              options
             )
           : await searchHostQuickOpenFilePaths(worktree.path, this.host.requireStore(), {
+              ...options,
               query,
               limit,
               excludePaths,

@@ -24,6 +24,7 @@ import {
 
 vi.mock('electron', async () => (await import('./filesystem-test-harness')).electronMock)
 vi.mock('fs/promises', async () => (await import('./filesystem-test-harness')).fsPromisesMock)
+vi.mock('node:fs/promises', async () => (await import('./filesystem-test-harness')).fsPromisesMock)
 vi.mock(
   '../wsl-unc-delete',
   async () => (await import('./filesystem-test-harness')).wslUncDeleteMock
@@ -248,6 +249,26 @@ describe('registerFilesystemHandlers', () => {
       { name: 'README.md', isDirectory: false, isSymlink: false }
     ])
     expect(statMock).not.toHaveBeenCalledWith(modelLinkPath)
+  })
+
+  it('authorizes opted-in links through the workspace spelling when its root is canonicalized', async () => {
+    const canonicalRoot = path.resolve('/private/canonical-fixture')
+    const linkPath = path.join(REPO_PATH, 'linked')
+    realpathMock.mockImplementation(async (targetPath: string) =>
+      targetPath === REPO_PATH ? canonicalRoot : targetPath
+    )
+    readdirMock.mockResolvedValue([dirEntry({ name: 'linked', symlink: true })])
+    statMock.mockResolvedValue({ isDirectory: () => true })
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the existing IPC harness supplies every store method these handlers read.
+    registerFilesystemHandlers(store as never)
+    await expect(
+      handlers.get('fs:readDir')!(null, {
+        dirPath: REPO_PATH,
+        followSymlinks: true
+      })
+    ).resolves.toEqual([{ name: 'linked', isDirectory: true, isSymlink: true }])
+    expect(readdirMock).toHaveBeenCalledWith(canonicalRoot, { withFileTypes: true })
+    expect(statMock).toHaveBeenCalledWith(linkPath)
   })
 
   it('returns false from pathExists when a local authorized path is missing', async () => {

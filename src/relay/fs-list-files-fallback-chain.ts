@@ -17,14 +17,16 @@ export async function runListFilesScan(
   excludePathPrefixes: string[],
   signal: AbortSignal,
   maxResults?: number,
-  searchQuery?: string
+  searchQuery?: string,
+  options: { includeIgnored?: boolean; followSymlinks?: boolean } = {}
 ): Promise<string[]> {
   throwIfFileListingCancelled(signal)
   try {
     return await listFilesWithRg(rootPath, excludePathPrefixes, {
       signal,
       maxResults,
-      searchQuery
+      searchQuery,
+      ...options
     })
   } catch (error) {
     throwIfFileListingCancelled(signal)
@@ -32,7 +34,7 @@ export async function runListFilesScan(
       throw error
     }
   }
-  if (searchQuery !== undefined) {
+  if (searchQuery !== undefined || options.includeIgnored === false || options.followSymlinks) {
     throw new Error(await buildRipgrepRequiredMessage())
   }
   // Detect Git ancestry so folder roots inside a checkout still honor its ignores.

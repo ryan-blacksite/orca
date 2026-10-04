@@ -1,5 +1,6 @@
 import { retainRelayFileListingPath } from './fs-file-listing-paths'
 import { FileInventoryBudget } from '../shared/file-inventory-budget'
+import { runRelayFileListingPasses, retryRelayFileListingPass } from './fs-list-files-passes'
 import { RipgrepFilenameDecoder } from '../shared/ripgrep-filename-decoder'
 /**
  * Ripgrep-based file listing for Quick Open.
@@ -42,7 +43,13 @@ export const LIST_FILES_TIMEOUT_MS = 25_000
 export function listFilesWithRg(
   rootPath: string,
   excludePathPrefixes: readonly string[] = [],
-  options: { signal?: AbortSignal; maxResults?: number; searchQuery?: string } = {}
+  options: {
+    signal?: AbortSignal
+    maxResults?: number
+    searchQuery?: string
+    includeIgnored?: boolean
+    followSymlinks?: boolean
+  } = {}
 ): Promise<string[]> {
   const { signal, maxResults, searchQuery } = options
   if (signal?.aborted) {
@@ -65,6 +72,7 @@ export function listFilesWithRg(
       // when the search target is relative to cwd. Absolute targets still
       // emit root-relative-looking paths for filters, but they do not prune.
       searchRoot: '.',
+      followSymlinks: options.followSymlinks,
       excludePathPrefixes,
       forceSlashSeparator: true
     })
@@ -282,12 +290,10 @@ export function listFilesWithRg(
       })
 
     const runPass = (args: string[]): Promise<void> =>
-      runPassOnce(args).catch((error: unknown) => {
-        if (!(error instanceof RipgrepLaunchFailureError) || signal?.aborted || done) {
-          throw error
-        }
-        return runPassOnce(args)
-      })
+      retryRelayFileListingPass(
+        () => runPassOnce(args),
+        () => Boolean(signal?.aborted || done)
+      )
 
     const killSurvivors = (reason: string): void => {
       // Cancellation or a reached budget must stop any admitted scan or retry.
@@ -325,15 +331,7 @@ export function listFilesWithRg(
     }
     signal?.addEventListener('abort', onAbort, { once: true })
 
-    // Without a result budget, the broader pass already contains every primary path.
-    const passes =
-      searchQuery !== undefined || maxResults === undefined
-        ? runPass(ignoredPass)
-        : runPass(primary).then(() =>
-            files.size < maxResults ? runPass(ignoredPass) : Promise.resolve()
-          )
-
-    passes
+    runRelayFileListingPasses(options, primary, ignoredPass, runPass, () => files.size)
       .then(() => {
         if (done) {
           return
