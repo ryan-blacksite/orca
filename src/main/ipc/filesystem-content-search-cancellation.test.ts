@@ -164,6 +164,40 @@ describe('content search cancellation', () => {
     expect(sender.eventNames()).toHaveLength(0)
   })
 
+  it('keeps lexical workspace result paths while executing inside its authorized canonical root', async () => {
+    registerFilesystemHandlers(Object.create(null))
+    const sender = Object.assign(new EventEmitter(), { id: 7 })
+    const child = createMockProcess()
+    resolveAuthorizedPathMock.mockResolvedValue('/private/tmp/workspace')
+    wslAwareSpawnMock.mockReturnValue(child)
+    const result = handlers.get('fs:search')!(
+      { sender },
+      { rootPath: '/tmp/workspace', query: 'needle' }
+    )
+    await flushMicrotasks()
+    child.stdout.emit(
+      'data',
+      `${JSON.stringify({
+        type: 'match',
+        data: {
+          path: { text: './example.txt' },
+          lines: { text: 'needle\n' },
+          line_number: 1,
+          submatches: [{ match: { text: 'needle' }, start: 0, end: 6 }]
+        }
+      })}\n`
+    )
+    child.emit('close', 0, null)
+    await expect(result).resolves.toMatchObject({
+      files: [{ filePath: '/tmp/workspace/example.txt', relativePath: 'example.txt' }]
+    })
+    expect(wslAwareSpawnMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ cwd: '/private/tmp/workspace' })
+    )
+  })
+
   it('kills a real local search fixture when its renderer abandons the request', async () => {
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: authorization and store access are mocked; the process is real.
     registerFilesystemHandlers({} as never)

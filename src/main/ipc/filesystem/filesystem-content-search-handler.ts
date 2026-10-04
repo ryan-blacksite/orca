@@ -137,7 +137,7 @@ export function registerFilesystemContentSearchHandler(context: FilesystemHandle
           const rejectUnavailable = (): void =>
             finish(Promise.reject(bundledRipgrepUnavailableError()))
           const processLine = (line: string): void => {
-            const verdict = ingestRgJsonLine(line, rootPath, acc, maxResults, transformAbsPath)
+            const verdict = ingestRgJsonLine(line, args.rootPath, acc, maxResults, transformAbsPath)
             if (verdict === 'stop' && child) {
               stopBundledRipgrep(child, Boolean(wslDistroForOutput))
             }

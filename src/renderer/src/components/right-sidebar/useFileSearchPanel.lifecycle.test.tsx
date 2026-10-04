@@ -9,6 +9,7 @@ import type { SearchResult } from '../../../../shared/code-search-types'
 const { search } = vi.hoisted(() => ({ search: vi.fn() }))
 vi.mock('@/runtime/runtime-file-client', () => ({ searchRuntimeFiles: search }))
 const initial = useAppStore.getInitialState()
+const initialView: { view: 'files' | 'search' } = { view: 'search' }
 const empty: SearchResult = { files: [], totalMatches: 0, truncated: false }
 
 beforeEach(() => {
@@ -40,7 +41,7 @@ it('aborts on view hide, resumes the saved query, keeps completed results and ca
   })
   useAppStore.getState().updateFileSearchState('folder:a', { query: 'needle' })
   const hook = renderHook(({ view }: { view: 'files' | 'search' }) => useFileSearchPanel(view), {
-    initialProps: { view: 'search' }
+    initialProps: initialView
   })
   await act(async () => vi.advanceTimersByTimeAsync(300))
   expect(signals).toHaveLength(1)
@@ -65,5 +66,64 @@ it('aborts on view hide, resumes the saved query, keeps completed results and ca
   await act(async () => useAppStore.setState({ activeWorktreeId: 'folder:a' }))
   expect(signals[2].aborted).toBe(true)
   expect(useAppStore.getState().fileSearchStateByWorktree['folder:b'].loading).toBe(false)
+  hook.unmount()
+})
+
+it.each(['search', 'files', 'unmounted'] as const)(
+  'invalidates completed results across same-ID root changes while %s',
+  async (view) => {
+    search.mockResolvedValue(empty)
+    useAppStore.getState().updateFileSearchState('folder:a', { query: 'needle' })
+    let hook = renderHook(({ view }: { view: 'search' | 'files' }) => useFileSearchPanel(view), {
+      initialProps: initialView
+    })
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+    expect(search).toHaveBeenCalledTimes(1)
+    if (view === 'unmounted') {
+      hook.unmount()
+    } else {
+      hook.rerender({ view })
+    }
+    await act(async () =>
+      useAppStore.setState({
+        folderWorkspaces: [makeFolderWorkspace({ id: 'a', folderPath: '/replacement' })]
+      })
+    )
+    if (view === 'files') {
+      expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].results).toBeNull()
+      hook.rerender({ view: 'search' })
+    } else if (view === 'unmounted') {
+      hook = renderHook(({ view }: { view: 'search' | 'files' }) => useFileSearchPanel(view), {
+        initialProps: initialView
+      })
+    }
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+    expect(search).toHaveBeenCalledTimes(2)
+    expect(search.mock.calls[1][1].rootPath).toBe('/replacement')
+    expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].resultOwner?.rootPath).toBe(
+      '/replacement'
+    )
+    hook.unmount()
+  }
+)
+
+it('invalidates completed results and errors when the execution owner changes at the same root', async () => {
+  search.mockResolvedValue(empty)
+  useAppStore.getState().updateFileSearchState('folder:a', { query: 'needle' })
+  const hook = renderHook(() => useFileSearchPanel('search'))
+  await act(async () => vi.advanceTimersByTimeAsync(300))
+  await act(async () =>
+    useAppStore.setState({
+      folderWorkspaces: [
+        makeFolderWorkspace({ id: 'a', folderPath: '/a', executionHostId: 'runtime:remote-a' })
+      ]
+    })
+  )
+  await act(async () => vi.advanceTimersByTimeAsync(300))
+  expect(search).toHaveBeenCalledTimes(2)
+  expect(search.mock.calls[1][0].settings.activeRuntimeEnvironmentId).toBe('remote-a')
+  expect(
+    useAppStore.getState().fileSearchStateByWorktree['folder:a'].resultOwner?.executionHostId
+  ).toBe('runtime:remote-a')
   hook.unmount()
 })

@@ -20,7 +20,12 @@ vi.mock('@/runtime/runtime-file-client', () => ({
 }))
 
 vi.mock('@/store', () => ({
-  useAppStore: Object.assign(vi.fn(), { getState: mocks.getState })
+  useAppStore: Object.assign(
+    vi.fn((selector: (state: ReturnType<typeof mocks.getState>) => unknown) =>
+      selector(mocks.getState())
+    ),
+    { getState: mocks.getState }
+  )
 }))
 
 const RESULTS: SearchResult = {
@@ -89,7 +94,9 @@ describe('useFileSearchRunner result ownership', () => {
       results: RESULTS,
       resultOwner: {
         worktreeId,
-        runtimeEnvironmentId: 'search-runtime-a'
+        runtimeEnvironmentId: 'search-runtime-a',
+        rootPath: '/repo',
+        executionHostId: 'runtime:search-runtime-a'
       }
     })
   })
@@ -115,7 +122,12 @@ describe('useFileSearchRunner result ownership', () => {
     )
     expect(updates).toContainEqual({
       results: RESULTS,
-      resultOwner: { worktreeId, runtimeEnvironmentId: null }
+      resultOwner: {
+        worktreeId,
+        runtimeEnvironmentId: null,
+        rootPath: '/repo',
+        executionHostId: 'local'
+      }
     })
   })
 
@@ -145,7 +157,12 @@ describe('useFileSearchRunner result ownership', () => {
     )
     expect(updates).toContainEqual({
       results: RESULTS,
-      resultOwner: { worktreeId, runtimeEnvironmentId: null }
+      resultOwner: {
+        worktreeId,
+        runtimeEnvironmentId: null,
+        rootPath: '/repo',
+        executionHostId: 'ssh:ssh-target'
+      }
     })
   })
 
@@ -163,7 +180,12 @@ describe('useFileSearchRunner result ownership', () => {
 
     expect(updates).toContainEqual({
       results: RESULTS,
-      resultOwner: { worktreeId, runtimeEnvironmentId: null }
+      resultOwner: {
+        worktreeId,
+        runtimeEnvironmentId: null,
+        rootPath: '/repo',
+        executionHostId: 'local'
+      }
     })
   })
 

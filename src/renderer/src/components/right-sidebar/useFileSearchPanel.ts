@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
+import { useFileSearchScope } from './useFileSearchScope'
 import { useActiveWorktree } from '@/store/selectors'
 import type {
   SearchFileResult,
@@ -137,18 +138,39 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
     }
   }, [worktreePath, cancelPendingSearch, updateActiveSearchState])
 
+  const isCurrentOwner = useFileSearchScope({
+    activeWorktreeId,
+    worktreePath,
+    explorerView,
+    executeSearch,
+    cancelPendingSearch,
+    updateActiveSearchState
+  })
+  const resultsAreCurrent = isCurrentOwner(fileSearchResultOwner)
   const committedSearchResults = useMemo(
-    () => ({ results: fileSearchResults, owner: fileSearchResultOwner }),
-    [fileSearchResultOwner, fileSearchResults]
+    () => ({
+      results: resultsAreCurrent ? fileSearchResults : null,
+      owner: resultsAreCurrent ? fileSearchResultOwner : null
+    }),
+    [fileSearchResultOwner, fileSearchResults, resultsAreCurrent]
   )
   const deferredSearchResults = useDeferredValue(committedSearchResults)
+  const deferredResultsAreCurrent = isCurrentOwner(deferredSearchResults.owner)
   const searchRows = useMemo(
     () =>
       buildSearchRows(
-        fileSearchQuery.trim() && worktreePath ? deferredSearchResults.results : null,
+        deferredResultsAreCurrent && fileSearchQuery.trim() && worktreePath
+          ? deferredSearchResults.results
+          : null,
         fileSearchCollapsedFiles
       ),
-    [deferredSearchResults.results, fileSearchCollapsedFiles, fileSearchQuery, worktreePath]
+    [
+      deferredSearchResults.results,
+      fileSearchCollapsedFiles,
+      fileSearchQuery,
+      worktreePath,
+      deferredResultsAreCurrent
+    ]
   )
 
   useEffect(() => {
@@ -176,22 +198,6 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
     }
     inputRef.current?.focus()
   }, [activeWorktreeId, fileSearchFocusRequestId])
-
-  useEffect(() => {
-    if (explorerView !== 'search') {
-      cancelPendingSearch()
-    } else if (activeWorktreeId) {
-      const saved = useAppStore.getState().fileSearchStateByWorktree[activeWorktreeId]
-      if (
-        saved?.query.trim() &&
-        !saved.results &&
-        !saved.error &&
-        saved.seedRequestId === undefined
-      ) {
-        executeSearch(saved.query)
-      }
-    }
-  }, [explorerView, activeWorktreeId, cancelPendingSearch, executeSearch])
 
   const previousExplorerViewRef = useRef(explorerView)
   useEffect(() => {
@@ -247,6 +253,9 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
 
   const handleMatchClick = useCallback(
     (fileResult: SearchFileResult, match: SearchMatch) => {
+      if (!deferredResultsAreCurrent) {
+        return
+      }
       openMatchResult({
         resultOwner: deferredSearchResults.owner,
         fileResult,
@@ -257,7 +266,7 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
         revealInnerRafRef
       })
     },
-    [deferredSearchResults.owner, openFile, setPendingEditorReveal]
+    [deferredSearchResults.owner, openFile, setPendingEditorReveal, deferredResultsAreCurrent]
   )
 
   return {
@@ -300,9 +309,9 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
       }
     },
     resultsProps: {
-      results: deferredSearchResults.results,
+      results: deferredResultsAreCurrent ? deferredSearchResults.results : null,
       error: searchState?.error,
-      hasCommittedResults: fileSearchResults !== null,
+      hasCommittedResults: resultsAreCurrent && fileSearchResults !== null,
       query: fileSearchQuery,
       loading: fileSearchLoading,
       rows: searchRows,
