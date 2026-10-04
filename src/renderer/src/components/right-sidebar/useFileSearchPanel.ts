@@ -177,6 +177,22 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
     inputRef.current?.focus()
   }, [activeWorktreeId, fileSearchFocusRequestId])
 
+  useEffect(() => {
+    if (explorerView !== 'search') {
+      cancelPendingSearch()
+    } else if (activeWorktreeId) {
+      const saved = useAppStore.getState().fileSearchStateByWorktree[activeWorktreeId]
+      if (
+        saved?.query.trim() &&
+        !saved.results &&
+        !saved.error &&
+        saved.seedRequestId === undefined
+      ) {
+        executeSearch(saved.query)
+      }
+    }
+  }, [explorerView, activeWorktreeId, cancelPendingSearch, executeSearch])
+
   const previousExplorerViewRef = useRef(explorerView)
   useEffect(() => {
     if (previousExplorerViewRef.current !== 'search' && explorerView === 'search') {
@@ -215,6 +231,9 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
         return
       }
       if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        inputRef.current?.blur()
         if (fileSearchQuery) {
           handleClearSearch()
         }

@@ -43,18 +43,27 @@ export function useFileSearchRunner({
   // Why: runtime searches can finish out of order; ids keep stale results
   // from overwriting the newest query state.
   const latestSearchIdRef = useRef(0)
+  const searchControllerRef = useRef<AbortController | null>(null)
 
   const cancelPendingSearch = useCallback(() => {
+    const interrupted = searchControllerRef.current !== null || searchTimerRef.current !== null
+    searchControllerRef.current?.abort()
+    searchControllerRef.current = null
     latestSearchIdRef.current += 1
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current)
       searchTimerRef.current = null
     }
-    updateActiveSearchState({ loading: false })
+    updateActiveSearchState({
+      loading: false,
+      ...(interrupted ? { results: null, resultOwner: null } : {})
+    })
   }, [updateActiveSearchState])
 
   const executeSearch = useCallback(
     (query: string) => {
+      searchControllerRef.current?.abort()
+      searchControllerRef.current = null
       latestSearchIdRef.current += 1
       const searchId = latestSearchIdRef.current
       updateActiveSearchState({ error: null })
@@ -97,6 +106,8 @@ export function useFileSearchRunner({
         // Why: results can outlive the selected worktree; clicks must reuse the route that produced them.
         const runtimeSettings = getRightSidebarWorktreeRuntimeSettings(activeWorktreeId)
         const resultOwner = createFileSearchResultOwner(activeWorktreeId, runtimeSettings)
+        const controller = new AbortController()
+        searchControllerRef.current = controller
         try {
           const state = useAppStore.getState()
           const connectionId = getConnectionId(activeWorktreeId) ?? undefined
@@ -133,12 +144,16 @@ export function useFileSearchRunner({
               includePattern: activeSearchState?.includePattern || undefined,
               excludePattern: activeSearchState?.excludePattern || undefined,
               maxResults: SEARCH_MAX_RESULTS
-            }
+            },
+            controller.signal
           )
           if (latestSearchIdRef.current === searchId) {
             updateActiveSearchState({ results, resultOwner })
           }
         } catch (err) {
+          if (controller.signal.aborted) {
+            return
+          }
           console.error('Search failed:', err)
           if (latestSearchIdRef.current === searchId) {
             updateActiveSearchState({
@@ -150,6 +165,9 @@ export function useFileSearchRunner({
             })
           }
         } finally {
+          if (searchControllerRef.current === controller) {
+            searchControllerRef.current = null
+          }
           if (latestSearchIdRef.current === searchId) {
             updateActiveSearchState({ loading: false })
           }
@@ -159,7 +177,7 @@ export function useFileSearchRunner({
     [activeWorktreeId, updateActiveSearchState, worktreePath]
   )
 
-  useEffect(() => cancelPendingSearch, [cancelPendingSearch])
+  useEffect(() => cancelPendingSearch, [cancelPendingSearch, worktreePath])
 
   return { executeSearch, cancelPendingSearch }
 }

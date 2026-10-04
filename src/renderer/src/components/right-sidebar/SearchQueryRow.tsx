@@ -42,6 +42,7 @@ export function SearchQueryRow({
       <input
         ref={inputRef}
         type="text"
+        data-file-search-input="true"
         className="min-w-0 flex-1 bg-transparent py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
         aria-label={translate(
           'auto.components.right.sidebar.SearchQueryRow.queryLabel',

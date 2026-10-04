@@ -1,4 +1,11 @@
 // @ts-nocheck -- mechanically split class members.
+import { stopBundledRipgrep } from '../ripgrep/bundled-ripgrep-stop'
+import { randomUUID } from 'node:crypto'
+import {
+  throwIfSignalAborted,
+  abortSignalReason,
+  waitForPromiseWithSignal
+} from '../../shared/abort-signal-reason'
 import { RipgrepSearchDiagnostics } from '../../shared/ripgrep-search-diagnostics'
 import { SearchSubprocessLineAccumulator } from '../../shared/search-subprocess-lines'
 import { RuntimeFileCommandsWithSearchRuntimeFiles } from './runtime-file-commands-search-runtime-files'
@@ -23,7 +30,6 @@ import {
   isRipgrepSpawnCwdUsable,
   isRipgrepUnavailableExit,
   isTransientRipgrepSpawnError,
-  killSpawnedRipgrepProcess,
   ripgrepMissingCwdError
 } from '../../shared/ripgrep-process-availability'
 import type { ChildProcessHandle } from '../../shared/child-process/process-spec'
@@ -34,10 +40,16 @@ import { joinWorktreeRelativePath, normalizeRuntimeRelativePath } from './runtim
 export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileCommandsWithSearchRuntimeFiles {
   protected async searchLocalRuntimeFiles(
     rootPath: string,
-    options: SearchOptions
+    options: SearchOptions,
+    signal?: AbortSignal
   ): Promise<SearchResult> {
+    throwIfSignalAborted(signal)
     const store = this.host.requireStore()
-    const authorizedRootPath = await resolveAuthorizedPath(rootPath, store)
+    const authorizedRootPath = await waitForPromiseWithSignal(
+      resolveAuthorizedPath(rootPath, store),
+      signal
+    )
+    throwIfSignalAborted(signal)
     const localGitOptions = getLocalGitOptionsForRegisteredWorktree(
       store,
       rootPath,
@@ -50,13 +62,8 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
     const wslDistroForOutput = parseWslPath(authorizedRootPath)?.distro ?? localGitOptions.wslDistro
 
     return new Promise<SearchResult>((resolvePromise, rejectPromise) => {
-      const searchKey = `${this.host.getRuntimeId()}:${authorizedRootPath}`
+      const searchKey = randomUUID()
       const rgArgs = buildRgArgs(options.query, '.', options)
-      const previousChild = this.activeRuntimeTextSearches.get(searchKey)
-      if (previousChild) {
-        killSpawnedRipgrepProcess(previousChild)
-      }
-
       const acc = createAccumulator()
       const lines = new SearchSubprocessLineAccumulator()
       const diagnostics = new RipgrepSearchDiagnostics()
@@ -92,6 +99,7 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
 
       let killTimeout: ReturnType<typeof setTimeout> | null = null
       const cleanupListeners = (): void => {
+        signal?.removeEventListener('abort', onAbort)
         lines.clear()
         if (killTimeout) {
           clearTimeout(killTimeout)
@@ -109,6 +117,12 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
         }
       }
 
+      const onAbort = (): void => {
+        finish(Promise.reject(abortSignalReason(signal!)))
+        if (child) {
+          stopBundledRipgrep(child, Boolean(wslDistroForOutput))
+        }
+      }
       const processLine = (line: string): void => {
         const verdict = ingestRgJsonLine(
           line,
@@ -118,7 +132,7 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
           transformAbsPath
         )
         if (verdict === 'stop' && child) {
-          killSpawnedRipgrepProcess(child)
+          stopBundledRipgrep(child, Boolean(wslDistroForOutput))
         }
       }
 
@@ -146,7 +160,7 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
         if (!lines.push(chunk, processLine)) {
           acc.truncated = true
           if (child) {
-            killSpawnedRipgrepProcess(child)
+            stopBundledRipgrep(child, Boolean(wslDistroForOutput))
           }
           resolveOnce()
         }
@@ -189,7 +203,7 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
         }
         finish(Promise.reject(error))
         if (child) {
-          killSpawnedRipgrepProcess(child)
+          stopBundledRipgrep(child, Boolean(wslDistroForOutput))
         }
       }
       const onClose = (code: number | null, signal: NodeJS.Signals | null): void => {
@@ -221,10 +235,15 @@ export class RuntimeFileCommandsWithSearchLocalRuntimeFiles extends RuntimeFileC
       nextChild.once('error', onError)
       nextChild.once('close', onClose)
 
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) {
+        onAbort()
+        return
+      }
       killTimeout = setTimeout(() => {
         acc.truncated = true
         if (child) {
-          killSpawnedRipgrepProcess(child)
+          stopBundledRipgrep(child, Boolean(wslDistroForOutput))
         }
         resolveOnce()
       }, SEARCH_TIMEOUT_MS)
