@@ -1,3 +1,4 @@
+import { closeSftpDirectoryHandle } from './ssh-sftp-directory-close'
 import { DirectoryListingBudget } from '../../shared/directory-listing-budget'
 import type { FileEntryWithStats, SFTPWrapper, Stats } from 'ssh2'
 import type { FileStat } from './types'
@@ -107,7 +108,7 @@ export async function* readDirectoryEntriesViaSftp(
     (callback) =>
       sftp.opendir(dirPath, (error, value) => {
         if (!error && options?.signal?.aborted) {
-          sftp.close(value, () => {})
+          void closeSftpDirectoryHandle(sftp, value)
           callback(new Error('Download canceled'))
           return
         }
@@ -146,7 +147,7 @@ export async function* readDirectoryEntriesViaSftp(
       }
     }
   } finally {
-    await waitForSftpCallback<void>((callback) => sftp.close(handle, callback))
+    await closeSftpDirectoryHandle(sftp, handle)
   }
 }
 

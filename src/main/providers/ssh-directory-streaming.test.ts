@@ -63,3 +63,85 @@ describe('SFTP directory handle ownership', () => {
     expect(mock.close).toHaveBeenCalledTimes(1)
   })
 })
+
+it('bounds a silent CLOSE after early stop and ignores its late callback', async () => {
+  vi.useFakeTimers()
+  try {
+    const { sftp, mock } = fixture([['first']])
+    let lateClose: (() => void) | undefined
+    mock.close.mockImplementation((_handle, callback) => {
+      lateClose = () => callback(null)
+    })
+    const iterator = readDirectoryEntriesViaSftp(sftp, '/folder')
+    await iterator.next()
+    const stopped = iterator.return(undefined)
+    await vi.advanceTimersByTimeAsync(5000)
+    await stopped
+    expect(mock.close).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+    lateClose?.()
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('preserves cancellation when CLOSE never acknowledges', async () => {
+  vi.useFakeTimers()
+  try {
+    const { sftp, mock } = fixture([['first'], ['second']])
+    mock.close.mockImplementation(() => {})
+    const controller = new AbortController()
+    const iterator = readDirectoryEntriesViaSftp(sftp, '/folder', { signal: controller.signal })
+    await iterator.next()
+    controller.abort(new Error('original cancellation'))
+    const rejected = expect(iterator.next()).rejects.toThrow('original cancellation')
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejected
+    expect(mock.close).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('closes a late OPENDIR handle even after cancellation settled', async () => {
+  vi.useFakeTimers()
+  try {
+    const { sftp, mock } = fixture([])
+    let lateOpen: (() => void) | undefined
+    mock.opendir.mockImplementation((_path, callback) => {
+      lateOpen = () => callback(null, Buffer.from('late-handle'))
+    })
+    mock.close.mockImplementation(() => {})
+    const controller = new AbortController()
+    const pending = readDirectoryEntriesViaSftp(sftp, '/folder', {
+      signal: controller.signal
+    }).next()
+    const rejected = expect(pending).rejects.toThrow('original cancellation')
+    controller.abort(new Error('original cancellation'))
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejected
+    lateOpen?.()
+    expect(mock.close).toHaveBeenCalledWith(Buffer.from('late-handle'), expect.any(Function))
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('preserves capacity failure when CLOSE never acknowledges', async () => {
+  vi.useFakeTimers()
+  try {
+    const { sftp, mock } = fixture([['x'.repeat(5 * 1024 * 1024)]])
+    mock.close.mockImplementation(() => {})
+    const rejected = expect(readDirViaSftp(sftp, '/folder')).rejects.toThrow('too large')
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejected
+    expect(mock.close).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
