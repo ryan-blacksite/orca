@@ -52,39 +52,26 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
       if (!provider) {
         return []
       }
-      const maxResults = options.maxResults ?? QUICK_OPEN_LISTING_MAX_RESULTS
+      const maxResults =
+        options.maxResults ??
+        (options.maxContentBytes === undefined ? undefined : QUICK_OPEN_LISTING_MAX_RESULTS)
       const files = await provider.listFiles(target.worktree.path, {
         excludePaths: options.excludePaths,
         maxResults,
         signal: options.signal
       })
-      if (
-        options.maxResults === undefined &&
-        options.maxContentBytes === undefined &&
-        files.length >= QUICK_OPEN_LISTING_MAX_RESULTS
-      ) {
-        throw new Error('File listing exceeds the Quick Open capacity; use a filtered search.')
-      }
       return options.maxContentBytes === undefined
         ? files
         : limitQuickOpenFilesBySerializedBytes(files, options.maxContentBytes)
     }
-    const files = await listQuickOpenFiles(
+    return listQuickOpenFiles(
       target.worktree.path,
       this.host.requireStore(),
       options.excludePaths,
       options.signal,
-      options.maxResults ?? QUICK_OPEN_LISTING_MAX_RESULTS,
+      options.maxResults,
       options.maxContentBytes
     )
-    if (
-      options.maxResults === undefined &&
-      options.maxContentBytes === undefined &&
-      files.length >= QUICK_OPEN_LISTING_MAX_RESULTS
-    ) {
-      throw new Error('File listing exceeds the Quick Open capacity; use a filtered search.')
-    }
-    return files
   }
 
   async listRuntimeMarkdownDocuments(worktreeSelector: string): Promise<MarkdownDocument[]> {

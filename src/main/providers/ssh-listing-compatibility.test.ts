@@ -1,3 +1,4 @@
+import { listSshFiles } from './ssh-file-listing'
 import { describe, expect, it, vi } from 'vitest'
 import { readSshMarkdownDocuments } from './ssh-markdown-document-listing'
 import { readSshDirectoryBounded } from './ssh-directory-listing'
@@ -17,6 +18,15 @@ function muxFixture(result: unknown, error?: Error) {
 const unsupported = () => Object.assign(new Error('Method not found'), { code: -32601 })
 
 describe('SSH listing compatibility', () => {
+  it('accepts late full-inventory files in old plain replies without a count cap', async () => {
+    const paths = Array.from({ length: 25002 }, (_, i) => `src/file-${i}.ts`)
+    const { mux, mock } = muxFixture(paths)
+    expect((await listSshFiles(mux, '/repo')).at(-1)).toBe('src/file-25001.ts')
+    expect(mock.request.mock.calls[0][1].maxResults).toBeUndefined()
+    const limited = muxFixture(paths.slice(0, 3))
+    expect(await listSshFiles(limited.mux, '/repo', { maxResults: 3 })).toHaveLength(3)
+  })
+
   it('keeps complete small old-peer Markdown inventories useful', async () => {
     const { mux } = muxFixture(undefined, unsupported())
     const loadLegacy = vi.fn().mockResolvedValue(['source.ts', 'docs/README.md'])

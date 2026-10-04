@@ -45,13 +45,28 @@ describe('runtime producer listing budgets', () => {
     expect(result.truncated).toBe(true)
   })
 
-  it('bounds an unqualified large runtime inventory and reports failure rather than silently hiding paths', async () => {
-    const listFiles = inventory(159027)
-    getSshFilesystemProviderMock.mockReturnValue({ listFiles })
-    const { commands } = createRuntimeFileCommands({ hostId: 'ssh:host' })
-    await expect(commands.listRuntimeFiles('id:wt-1')).rejects.toThrow('capacity')
-    expect(listFiles.mock.calls[0][1]?.maxResults).toBe(20001)
-    expect((await listFiles.mock.results[0].value).length).toBe(20001)
+  it.each([25002, 100000])(
+    'keeps late files in an unqualified %i-file SSH inventory',
+    async (count) => {
+      const listFiles = inventory(count)
+      getSshFilesystemProviderMock.mockReturnValue({ listFiles })
+      const { commands } = createRuntimeFileCommands({ hostId: 'ssh:host' })
+      const files = await commands.listRuntimeFiles('id:wt-1')
+      expect(files).toHaveLength(count)
+      expect(files.at(-1)).toBe(`src/file-${count - 1}.ts`)
+      expect(listFiles.mock.calls[0][1]?.maxResults).toBeUndefined()
+    }
+  )
+
+  it('preserves the full local inventory and explicit caller limits', async () => {
+    localList.mockClear()
+    localList.mockImplementation(async (_root, _store, _excluded, _signal, maxResults) =>
+      Array.from({ length: 25002 }, (_, i) => `file-${i}.txt`).slice(0, maxResults)
+    )
+    const { commands } = createRuntimeFileCommands()
+    expect((await commands.listRuntimeFiles('id:wt-1')).at(-1)).toBe('file-25001.txt')
+    expect(localList.mock.calls[0][4]).toBeUndefined()
+    expect(await commands.listRuntimeFiles('id:wt-1', { maxResults: 3 })).toHaveLength(3)
   })
 
   it('requests Markdown from its semantic producer, without retaining unrelated paths', async () => {

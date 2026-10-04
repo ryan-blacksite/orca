@@ -1,3 +1,4 @@
+import { FileInventoryBudget, FILE_INVENTORY_MAX_BYTES } from '../../shared/file-inventory-budget'
 import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
 import type { IFilesystemProvider } from './types'
 import { requestGitStreamable } from '../ssh/ssh-git-response-stream-reader'
@@ -26,13 +27,20 @@ export async function listSshFiles(
   // by the sentinel marker being absent.
   const result = await requestGitStreamable(mux, 'fs.listFiles', params, {
     signal: options?.signal,
-    ...(options?.maxResults !== undefined ? { maxResponseBytes: 16 * 1024 * 1024 } : {})
+    maxResponseBytes:
+      options?.maxResults !== undefined ? 16 * 1024 * 1024 : FILE_INVENTORY_MAX_BYTES
   })
   if (!Array.isArray(result) || result.some((path) => typeof path !== 'string')) {
     throw new Error('Invalid remote file listing')
   }
   if (options?.maxResults !== undefined && result.length > options.maxResults) {
     throw new Error('Remote file listing exceeds the requested capacity')
+  }
+  if (options?.maxResults === undefined && options?.searchQuery === undefined) {
+    const budget = new FileInventoryBudget()
+    for (const path of result) {
+      budget.record(path)
+    }
   }
   return result
 }
