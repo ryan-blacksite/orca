@@ -1,3 +1,4 @@
+import { DirectoryListingBudget } from '../../shared/directory-listing-budget'
 import type { FileEntryWithStats, SFTPWrapper, Stats } from 'ssh2'
 import type { FileStat } from './types'
 
@@ -95,15 +96,72 @@ export function fastGetViaSftp(
   )
 }
 
-export function readDirViaSftp(
+export async function* readDirectoryEntriesViaSftp(
+  sftp: SFTPWrapper,
+  dirPath: string,
+  options?: { signal?: AbortSignal }
+): AsyncGenerator<FileEntryWithStats> {
+  // Keep the late handle visible to finally when cancellation races opendir.
+  options?.signal?.throwIfAborted()
+  const handle = await waitForSftpCallback<Buffer>(
+    (callback) =>
+      sftp.opendir(dirPath, (error, value) => {
+        if (!error && options?.signal?.aborted) {
+          sftp.close(value, () => {})
+          callback(new Error('Download canceled'))
+          return
+        }
+        callback(error, value)
+      }),
+    options
+  )
+  try {
+    options?.signal?.throwIfAborted()
+    while (true) {
+      let chunk: FileEntryWithStats[] | false
+      try {
+        chunk = await waitForSftpCallback<FileEntryWithStats[] | false>(
+          (callback) => sftp.readdir(handle, callback),
+          options
+        )
+      } catch (error) {
+        if (
+          !options?.signal?.aborted &&
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 1
+        ) {
+          return
+        }
+        throw error
+      }
+      if (chunk === false) {
+        return
+      }
+      for (const entry of chunk) {
+        options?.signal?.throwIfAborted()
+        if (entry.filename !== '.' && entry.filename !== '..') {
+          yield entry
+        }
+      }
+    }
+  } finally {
+    await waitForSftpCallback<void>((callback) => sftp.close(handle, callback))
+  }
+}
+
+export async function readDirViaSftp(
   sftp: SFTPWrapper,
   dirPath: string,
   options?: { signal?: AbortSignal }
 ): Promise<FileEntryWithStats[]> {
-  return waitForSftpCallback<FileEntryWithStats[]>(
-    (callback) => sftp.readdir(dirPath, callback),
-    options
-  )
+  const budget = new DirectoryListingBudget()
+  const entries: FileEntryWithStats[] = []
+  for await (const entry of readDirectoryEntriesViaSftp(sftp, dirPath, options)) {
+    budget.record(entry.filename)
+    entries.push(entry)
+  }
+  return entries
 }
 
 export function statViaSftp(

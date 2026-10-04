@@ -1,0 +1,65 @@
+import { describe, expect, it, vi } from 'vitest'
+import { readSshMarkdownDocuments } from './ssh-markdown-document-listing'
+import { readSshDirectoryBounded } from './ssh-directory-listing'
+import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
+
+function muxFixture(result: unknown, error?: Error) {
+  const mock = {
+    request: error ? vi.fn().mockRejectedValue(error) : vi.fn().mockResolvedValue(result),
+    notify: vi.fn(),
+    onNotificationByMethod: vi.fn(() => () => {}),
+    onDispose: vi.fn(() => () => {}),
+    isDisposed: () => false
+  }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The reader uses only these request, notification, and disposal operations.
+  return { mock, mux: mock as unknown as SshChannelMultiplexer }
+}
+const unsupported = () => Object.assign(new Error('Method not found'), { code: -32601 })
+
+describe('SSH listing compatibility', () => {
+  it('keeps complete small old-peer Markdown inventories useful', async () => {
+    const { mux } = muxFixture(undefined, unsupported())
+    const loadLegacy = vi.fn().mockResolvedValue(['source.ts', 'docs/README.md'])
+    const result = await readSshMarkdownDocuments(mux, '/repo', undefined, loadLegacy)
+    expect(result.map((document) => document.relativePath)).toEqual(['docs/README.md'])
+    expect(loadLegacy).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an old-peer sentinel inventory rather than reporting a Markdown prefix as complete', async () => {
+    const { mux } = muxFixture(undefined, unsupported())
+    await expect(
+      readSshMarkdownDocuments(mux, '/repo', undefined, async () => Array(20_001).fill('source.ts'))
+    ).rejects.toThrow('Workspace is too large')
+  })
+
+  it('uses bounded SFTP fallback for old directory peers and preserves failures', async () => {
+    const { mux } = muxFixture(undefined, unsupported())
+    const fallback = vi
+      .fn()
+      .mockResolvedValue([{ name: 'folder', isDirectory: true, isSymlink: false }])
+    expect(await readSshDirectoryBounded(mux, '/repo', fallback)).toHaveLength(1)
+    const failure = muxFixture(undefined, new Error('Permission denied'))
+    await expect(readSshDirectoryBounded(failure.mux, '/repo', fallback)).rejects.toThrow(
+      'Permission denied'
+    )
+    expect(fallback).toHaveBeenCalledTimes(1)
+  })
+
+  it('validates new-peer directory and Markdown metadata before exposing it', async () => {
+    const directory = muxFixture([
+      { name: 'x'.repeat(5 * 1024 * 1024), isDirectory: false, isSymlink: false }
+    ])
+    await expect(readSshDirectoryBounded(directory.mux, '/repo')).rejects.toThrow()
+    const markdown = muxFixture(
+      Array.from({ length: 20_001 }, () => ({
+        filePath: '/repo/a.md',
+        relativePath: 'a.md',
+        basename: 'a.md',
+        name: 'a'
+      }))
+    )
+    await expect(readSshMarkdownDocuments(markdown.mux, '/repo')).rejects.toThrow(
+      'Workspace is too large'
+    )
+  })
+})

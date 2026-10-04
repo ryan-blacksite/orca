@@ -99,7 +99,7 @@ describe('Markdown document ripgrep lifecycle', () => {
   it('rejects an oversized unfinished record without retaining the process', async () => {
     const result = listMarkdownDocuments(root)
     child.stdout.write(`./${'a'.repeat(1024 * 1024)}`)
-    await expect(result).rejects.toThrow('path exceeds')
+    await expect(result).rejects.toThrow('Workspace is too large')
     expect(child.kill).toHaveBeenCalledWith('SIGKILL')
   })
 
@@ -161,4 +161,32 @@ describe('Markdown document ripgrep lifecycle', () => {
     child.emit('close', 1, null)
     await result
   })
+})
+
+it('returns the complete 20,000-document boundary', async () => {
+  const result = listMarkdownDocuments(root)
+  child.stdout.write(Array.from({ length: 20_000 }, (_, index) => `./doc-${index}.md\0`).join(''))
+  child.emit('close', 0, null)
+  expect(await result).toHaveLength(20_000)
+  expect(child.kill).not.toHaveBeenCalled()
+})
+
+it('rejects the 20,001st document without retaining the child', async () => {
+  const result = listMarkdownDocuments(root)
+  const paths = Array.from({ length: 20_000 }, (_, index) => `./doc-${index}.md\0`).join('')
+  child.stdout.write(paths)
+  child.stdout.write('./overflow.md\0')
+  await expect(result).rejects.toThrow('Workspace is too large')
+  expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+  expect(child.stdout.listenerCount('data')).toBe(0)
+})
+
+it('cancels the filtered producer and permits a fresh request', async () => {
+  const controller = new AbortController()
+  const result = listMarkdownDocuments(root, { signal: controller.signal })
+  child.stdout.write('./partial')
+  controller.abort(new Error('editor closed'))
+  await expect(result).rejects.toThrow('editor closed')
+  expect(child.kill).toHaveBeenCalledWith('SIGKILL')
+  expect(child.stdout.listenerCount('data')).toBe(0)
 })

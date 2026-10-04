@@ -1,3 +1,4 @@
+import { DirectoryListingBudget } from '../../shared/directory-listing-budget'
 /**
  * Filesystem provider for plain SSH mode (design D6 rung D): read, list, stat and write over
  * one reused SFTP channel. Anything that needs the Orca remote server (search, file lists,
@@ -21,7 +22,7 @@ import {
 import {
   fileStatFromSftpStats,
   lstatViaSftp,
-  readDirViaSftp,
+  readDirectoryEntriesViaSftp,
   statViaSftp
 } from './ssh-filesystem-provider-sftp'
 import type { FileReadLimits, FileReadResult, FileStat, IFilesystemProvider } from './types'
@@ -159,21 +160,7 @@ export class SshSftpFilesystemProvider implements IFilesystemProvider {
   async readDir(dirPath: string): Promise<DirEntry[]> {
     const path = toSftpPath(dirPath)
     return this.run(async (sftp) => {
-      const entries = await readDirViaSftp(sftp, path)
-      const mapped = await Promise.all(
-        entries.map(async (entry): Promise<DirEntry> => {
-          const isSymlink = entry.attrs.isSymbolicLink()
-          let isDirectory = entry.attrs.isDirectory()
-          if (isSymlink) {
-            // Why: a symlink to a directory must expand in the tree like its target.
-            isDirectory = await statViaSftp(sftp, `${path.replace(/\/$/, '')}/${entry.filename}`)
-              .then((stats) => stats.isDirectory())
-              .catch(() => false)
-          }
-          return { name: entry.filename, isDirectory, isSymlink }
-        })
-      )
-      return sortDirEntries(mapped)
+      return readSftpDirectory(sftp, path)
     })
   }
 
@@ -344,4 +331,21 @@ export class SshSftpFilesystemProvider implements IFilesystemProvider {
   async watch(): Promise<() => void> {
     throw this.unsupported('Watching files for changes')
   }
+}
+
+export async function readSftpDirectory(sftp: SFTPWrapper, path: string): Promise<DirEntry[]> {
+  const budget = new DirectoryListingBudget()
+  const mapped: DirEntry[] = []
+  for await (const entry of readDirectoryEntriesViaSftp(sftp, path)) {
+    budget.record(entry.filename)
+    const isSymlink = entry.attrs.isSymbolicLink()
+    let isDirectory = entry.attrs.isDirectory()
+    if (isSymlink) {
+      isDirectory = await statViaSftp(sftp, `${path.replace(/\/$/, '')}/${entry.filename}`)
+        .then((stats) => stats.isDirectory())
+        .catch(() => false)
+    }
+    mapped.push({ name: entry.filename, isDirectory, isSymlink })
+  }
+  return sortDirEntries(mapped)
 }

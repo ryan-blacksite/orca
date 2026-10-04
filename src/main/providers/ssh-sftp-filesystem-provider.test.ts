@@ -42,7 +42,21 @@ class FakeSftp extends EventEmitter {
     return node.kind === 'file' ? node.content.length : 0
   }
 
-  readdir(path: string, cb: Callback): void {
+  private directoryReads = new WeakSet<Buffer>()
+
+  opendir(path: string, cb: Callback): void {
+    cb(null, Buffer.from(path))
+  }
+  close(_handle: Buffer, cb: Callback): void {
+    cb(null)
+  }
+
+  readdir(handle: Buffer, cb: Callback): void {
+    if (this.directoryReads.has(handle)) {
+      return cb(null, false)
+    }
+    this.directoryReads.add(handle)
+    const path = handle.toString()
     const prefix = `${path}/`
     const entries = [...this.nodes]
       .filter(([p]) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/'))

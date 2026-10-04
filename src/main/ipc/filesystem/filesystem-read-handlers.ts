@@ -1,3 +1,4 @@
+import { listFilesystemMarkdownDocuments } from '../../providers/filesystem-markdown-listing'
 import {
   capturePathExistence,
   validatePathExistenceBatch,
@@ -15,7 +16,7 @@ import {
   resolveLocalFileRequestPath
 } from '../local-file-access-resolution'
 import { isENOENT } from '../filesystem-path-containment'
-import { listMarkdownDocuments, markdownDocumentsFromRelativePaths } from '../markdown-documents'
+import { listMarkdownDocuments } from '../markdown-documents'
 import { getLocalGitOptionsForRegisteredWorktree } from '../local-worktree-runtime-options'
 import { recordCrashBreadcrumb } from '../../crash-reporting/crash-breadcrumb-store'
 import { buildReadDirErrorBreadcrumb, type ReadDirThrowSite } from '../readdir-error-diagnostics'
@@ -98,10 +99,14 @@ export function registerFilesystemReadHandlers(context: FilesystemHandlerContext
     ): Promise<MarkdownDocument[]> => {
       if (args.connectionId) {
         const provider = requireSshFilesystemProvider(args.connectionId)
-        const relativePaths = await provider.listFiles(args.rootPath)
-        return markdownDocumentsFromRelativePaths(args.rootPath, relativePaths)
+        return listFilesystemMarkdownDocuments(provider, args.rootPath)
       }
-      const rootPath = await resolveRegisteredWorktreePath(args.rootPath, store)
+      const isFolderRoot = store
+        .getFolderWorkspaces?.()
+        .some((workspace) => workspace.folderPath === args.rootPath)
+      const rootPath = isFolderRoot
+        ? await resolveAuthorizedPath(args.rootPath, store)
+        : await resolveRegisteredWorktreePath(args.rootPath, store)
       return listMarkdownDocuments(
         rootPath,
         getLocalGitOptionsForRegisteredWorktree(store, args.rootPath, rootPath)

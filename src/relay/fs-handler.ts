@@ -1,3 +1,5 @@
+import { readRelayDirectoryBounded } from './fs-directory-listing'
+import { listRelayMarkdownDocuments } from './fs-markdown-document-listing'
 import { pathsExistOnRelay } from './fs-path-existence'
 import { tmpdir } from 'node:os'
 import type { RelayDispatcher, RequestContext } from './dispatcher'
@@ -80,6 +82,15 @@ export class FsHandler {
 
   private registerHandlers(): void {
     this.dispatcher.onRequest('fs.readDir', (p) => readRelayDir(p))
+    this.dispatcher.onRequest('fs.readDirBounded', async (p, c) => {
+      if (typeof p.dirPath !== 'string') {
+        throw new Error('Invalid directory path')
+      }
+      const entries = await readRelayDirectoryBounded(p.dirPath, c?.signal)
+      return this.responseStreams
+        ? maybeStreamRpcResponse(entries, p, c, this.responseStreams, this.dispatcher)
+        : entries
+    })
     this.dispatcher.onRequest('fs.readFile', (p) => this.readFile(p))
     this.dispatcher.onRequest('fs.readFileStream', (p, c) => this.readFileStream(p, c))
     this.dispatcher.onRequest('fs.readFileRange', (p) => this.readFileRange(p))
@@ -108,6 +119,15 @@ export class FsHandler {
       pathExistenceBatchVersion: 1
     }))
     this.dispatcher.onRequest('fs.listFiles', (p, c) => this.listFiles(p, c))
+    this.dispatcher.onRequest('fs.listMarkdownDocuments', async (p, c) => {
+      if (typeof p.rootPath !== 'string') {
+        throw new Error('Invalid Markdown discovery root')
+      }
+      const documents = await listRelayMarkdownDocuments(p.rootPath, c?.signal)
+      return this.responseStreams
+        ? maybeStreamRpcResponse(documents, p, c, this.responseStreams, this.dispatcher)
+        : documents
+    })
     this.dispatcher.onRequest('fs.workspaceSpaceScan', (p, c) => this.workspaceSpaceScan(p, c))
     this.dispatcher.onRequest('fs.watch', (p, context) =>
       this.watchRegistry.watch(

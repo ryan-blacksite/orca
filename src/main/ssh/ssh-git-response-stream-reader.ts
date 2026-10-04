@@ -1,3 +1,4 @@
+import { stringifyJsonWithinByteLimit } from '../../shared/node-bounded-json-stringify'
 import type { SshChannelMultiplexer } from './ssh-channel-multiplexer'
 import { createSshDisposalError } from './ssh-channel-multiplexer'
 import { RelayErrorCode, isGitResponseStreamMarker } from './relay-protocol'
@@ -49,6 +50,7 @@ export function requestGitStreamable(
     /** Bounds only the sentinel request (forwarded to mux.request), like today. */
     timeoutMs?: number
     /** Bounds the post-sentinel reassembly stall; resets on each chunk. */
+    maxResponseBytes?: number
     inactivityTimeoutMs?: number
   }
 ): Promise<unknown> {
@@ -128,6 +130,8 @@ export function requestGitStreamable(
         return
       }
       settled = true
+      parts.length = 0
+      pending.length = 0
       clearInactivity()
       cleanup()
       resolve(value)
@@ -152,6 +156,13 @@ export function requestGitStreamable(
         return
       }
       const decoded = Buffer.from(data, 'base64')
+      if (
+        options?.maxResponseBytes !== undefined &&
+        receivedBytes + decoded.length > options.maxResponseBytes
+      ) {
+        fail(new GitResponseStreamError('Filesystem response exceeds the retention budget'))
+        return
+      }
       parts.push(decoded)
       receivedBytes += decoded.length
       expectedSeq += 1
@@ -289,6 +300,9 @@ export function requestGitStreamable(
         }
         // Old relay / small result: plain single-frame value, no stream follows.
         if (!isGitResponseStreamMarker(result)) {
+          if (options?.maxResponseBytes !== undefined) {
+            stringifyJsonWithinByteLimit(result, options.maxResponseBytes)
+          }
           succeed(result)
           return
         }
@@ -296,6 +310,10 @@ export function requestGitStreamable(
         totalBytes = marker.totalBytes
         chunkCount = marker.chunkCount
         streamIdRef.current = marker.streamId
+        if (options?.maxResponseBytes !== undefined && totalBytes > options.maxResponseBytes) {
+          fail(new GitResponseStreamError('Filesystem response exceeds the retention budget'))
+          return
+        }
         metadataReady = true
         // Why: start the inactivity deadline now — mux.request's timeout only
         // covered the sentinel; the reassembly phase needs its own guard.

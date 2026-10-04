@@ -1,5 +1,6 @@
 // @ts-nocheck -- mechanically split class members.
 import { RuntimeFileCommandsWithCreateFileExplorerDirNoClobber } from './runtime-file-commands-create-file-explorer-dir-no-clobber'
+import { listFilesystemMarkdownDocuments } from '../providers/filesystem-markdown-listing'
 import type { SearchOptions, SearchResult } from '../../shared/code-search-types'
 import {
   requireRuntimeFileProvider,
@@ -9,10 +10,7 @@ import { QUICK_OPEN_LISTING_MAX_RESULTS } from '../../shared/quick-open-listing-
 import { limitQuickOpenFilesBySerializedBytes } from '../../shared/quick-open-transport-budget'
 import { listQuickOpenFiles } from '../ipc/filesystem-list-files'
 import type { MarkdownDocument } from '../../shared/filesystem-entry-types'
-import {
-  listMarkdownDocuments,
-  markdownDocumentsFromRelativePaths
-} from '../ipc/markdown-documents'
+import { listMarkdownDocuments } from '../ipc/markdown-documents'
 import { getLocalGitOptionsForRegisteredWorktree } from '../ipc/local-worktree-runtime-options'
 import {
   validatePathExistenceBatch,
@@ -54,34 +52,46 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
       if (!provider) {
         return []
       }
-      const maxResults =
-        options.maxResults ??
-        (options.maxContentBytes === undefined ? undefined : QUICK_OPEN_LISTING_MAX_RESULTS)
+      const maxResults = options.maxResults ?? QUICK_OPEN_LISTING_MAX_RESULTS
       const files = await provider.listFiles(target.worktree.path, {
         excludePaths: options.excludePaths,
         maxResults,
         signal: options.signal
       })
+      if (
+        options.maxResults === undefined &&
+        options.maxContentBytes === undefined &&
+        files.length >= QUICK_OPEN_LISTING_MAX_RESULTS
+      ) {
+        throw new Error('File listing exceeds the Quick Open capacity; use a filtered search.')
+      }
       return options.maxContentBytes === undefined
         ? files
         : limitQuickOpenFilesBySerializedBytes(files, options.maxContentBytes)
     }
-    return listQuickOpenFiles(
+    const files = await listQuickOpenFiles(
       target.worktree.path,
       this.host.requireStore(),
       options.excludePaths,
       options.signal,
-      options.maxResults,
+      options.maxResults ?? QUICK_OPEN_LISTING_MAX_RESULTS,
       options.maxContentBytes
     )
+    if (
+      options.maxResults === undefined &&
+      options.maxContentBytes === undefined &&
+      files.length >= QUICK_OPEN_LISTING_MAX_RESULTS
+    ) {
+      throw new Error('File listing exceeds the Quick Open capacity; use a filtered search.')
+    }
+    return files
   }
 
   async listRuntimeMarkdownDocuments(worktreeSelector: string): Promise<MarkdownDocument[]> {
     const target = await this.host.resolveRuntimeFileTarget(worktreeSelector)
     const provider = requireRuntimeFileProvider(target)
     if (provider) {
-      const relativePaths = await provider.listFiles(target.worktree.path)
-      return markdownDocumentsFromRelativePaths(target.worktree.path, relativePaths)
+      return listFilesystemMarkdownDocuments(provider, target.worktree.path)
     }
     return listMarkdownDocuments(
       target.worktree.path,

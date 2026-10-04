@@ -1,3 +1,4 @@
+import { withSftpDirectoryHandles } from './sftp-directory-test-fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -64,7 +65,7 @@ describe('downloadFolderViaSftp', () => {
     }
 
     await expect(
-      downloadFolderViaSftp(async () => sftp as never, '/remote/src', destination)
+      downloadFolderViaSftp(async () => withSftpDirectoryHandles(sftp), '/remote/src', destination)
     ).rejects.toThrow("Remote entries map to the same local name 'a.txt'")
     expect(sftp.fastGet).toHaveBeenCalledTimes(1)
   })
@@ -83,7 +84,7 @@ describe('downloadFolderViaSftp', () => {
     }
 
     await expect(
-      downloadFolderViaSftp(async () => sftp as never, '/remote/src', destination)
+      downloadFolderViaSftp(async () => withSftpDirectoryHandles(sftp), '/remote/src', destination)
     ).rejects.toThrow("Cannot download unsupported remote entry 'build.pipe'")
     expect(sftp.fastGet).not.toHaveBeenCalled()
   })
@@ -103,7 +104,7 @@ describe('downloadFolderViaSftp', () => {
     }
 
     await expect(
-      downloadFolderViaSftp(async () => sftp as never, '/remote/src', destination)
+      downloadFolderViaSftp(async () => withSftpDirectoryHandles(sftp), '/remote/src', destination)
     ).rejects.toThrow("Cannot download symbolic link 'creds'")
     // The link target could be /etc/passwd; rejecting from directory-entry
     // metadata means it is never followed with stat or opened by fastGet.
@@ -125,7 +126,7 @@ describe('downloadFolderViaSftp', () => {
     }
 
     await expect(
-      downloadFolderViaSftp(async () => sftp as never, '/remote/src', destination)
+      downloadFolderViaSftp(async () => withSftpDirectoryHandles(sftp), '/remote/src', destination)
     ).rejects.toThrow("Remote entries map to the same local name 'download'")
     expect(sftp.fastGet).not.toHaveBeenCalled()
   })
@@ -146,9 +147,14 @@ describe('downloadFolderViaSftp', () => {
       end: vi.fn()
     }
 
-    await downloadFolderViaSftp(async () => sftp as never, sourcePath, destination, {
-      windowsRemotePaths: false
-    })
+    await downloadFolderViaSftp(
+      async () => withSftpDirectoryHandles(sftp),
+      sourcePath,
+      destination,
+      {
+        windowsRemotePaths: false
+      }
+    )
 
     expect(sftp.fastGet).toHaveBeenCalledWith(
       '/remote/parent\\literal/..\\secret.txt',
@@ -171,9 +177,14 @@ describe('downloadFolderViaSftp', () => {
     }
 
     await expect(
-      downloadFolderViaSftp(async () => sftp as never, 'C:/remote/src', destination, {
-        windowsRemotePaths: true
-      })
+      downloadFolderViaSftp(
+        async () => withSftpDirectoryHandles(sftp),
+        'C:/remote/src',
+        destination,
+        {
+          windowsRemotePaths: true
+        }
+      )
     ).rejects.toThrow("Invalid remote directory entry '..\\secret.txt'")
     expect(sftp.fastGet).not.toHaveBeenCalled()
   })
@@ -195,9 +206,14 @@ describe('downloadFolderViaSftp', () => {
     }
     const controller = new AbortController()
 
-    const result = downloadFolderViaSftp(async () => sftp as never, '/remote/src', destination, {
-      signal: controller.signal
-    })
+    const result = downloadFolderViaSftp(
+      async () => withSftpDirectoryHandles(sftp),
+      '/remote/src',
+      destination,
+      {
+        signal: controller.signal
+      }
+    )
     await vi.waitFor(() => expect(sftp.fastGet).toHaveBeenCalledTimes(1))
     controller.abort(new Error('renderer closed'))
 
@@ -234,9 +250,14 @@ describe('downloadFolderViaSftp', () => {
     }
     const controller = new AbortController()
 
-    const result = downloadFolderViaSftp(async () => sftp as never, '/remote/src', destination, {
-      signal: controller.signal
-    })
+    const result = downloadFolderViaSftp(
+      async () => withSftpDirectoryHandles(sftp),
+      '/remote/src',
+      destination,
+      {
+        signal: controller.signal
+      }
+    )
     await vi.waitFor(() => expect(sftp.readdir).toHaveBeenCalledTimes(1))
     controller.abort(new Error('renderer closed'))
     readDirCallback?.(new Error('channel closed'))
