@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MarkdownDocument } from '../../../../shared/filesystem-entry-types'
 import { useAppStore } from '@/store'
+import { translate } from '@/i18n/i18n'
 import { getConnectionId } from '@/lib/connection-context'
 import { statRuntimePath } from '@/runtime/runtime-file-client'
 import { settingsForRuntimeOwner } from '@/runtime/runtime-rpc-client'
@@ -101,7 +102,14 @@ export function useMarkdownDocuments(
       } catch (err) {
         console.error('Failed to list markdown documents:', err)
         if (requestRef.current === requestId) {
-          toast.error(err instanceof Error ? err.message : 'Failed to list Markdown documents.')
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : translate(
+                  'auto.components.editor.useMarkdownDocuments.listFailed',
+                  'Failed to list Markdown documents.'
+                )
+          )
         }
         if (requestRef.current === requestId) {
           setSnapshot({ key: scopeKey, documents: [] })
