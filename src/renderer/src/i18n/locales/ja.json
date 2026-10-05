@@ -76,7 +76,8 @@
         "softer": "柔らかく",
         "sharper": "くっきり",
         "terminalInterfaceSummary": "ターミナルの外観",
-        "contrastSummary": "コントラスト {{value0}}"
+        "contrastSummary": "コントラスト {{value0}}",
+        "preview": "プレビュー"
       }
     },
     "browser": {

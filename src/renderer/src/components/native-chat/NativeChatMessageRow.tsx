@@ -79,6 +79,7 @@ export const MessageRow = memo(function MessageRow({
   previousUpdatePlan,
   revealedDiff,
   expandSignal,
+  toolRunExpandOverride,
   activeTurnIsWorking,
   trailingRun,
   onScrollMessageToTop,
@@ -96,6 +97,8 @@ export const MessageRow = memo(function MessageRow({
   previousUpdatePlan?: NativeChatToolCallBlock
   revealedDiff?: NativeChatDiffReveal
   expandSignal: boolean
+  /** External disclosure for an inert sample with its tool run always open. */
+  toolRunExpandOverride?: boolean
   activeTurnIsWorking?: boolean
   /** This row's tool run is the turn's last, so it is the one still live. */
   trailingRun?: boolean
@@ -282,6 +285,7 @@ export const MessageRow = memo(function MessageRow({
           subagentDisclosure={subagentDisclosure}
           backgroundTasks={backgroundTasks}
           expandSignal={expandSignal}
+          expandOverride={toolRunExpandOverride}
           activeTurnIsWorking={activeTurnIsWorking}
           trailing={trailingRun}
           disclosureId={message.id}

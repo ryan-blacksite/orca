@@ -265,6 +265,24 @@ describe('AppearancePane', () => {
     expect(summary).not.toContain('Contrast')
   })
 
+  it('mounts the chat preview only while the Chat card is open', async () => {
+    mocks.state.settingsSearchQuery = ''
+    const container = await renderAppearancePane(getDefaultSettings('/tmp'))
+    const chatToggle = appearanceSectionToggle(container, 'chat')
+    expect(container.querySelector('[data-native-chat-appearance-preview]')).not.toBeNull()
+
+    await act(async () => {
+      chatToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(chatToggle?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('[data-native-chat-appearance-preview]')).toBeNull()
+
+    await act(async () => {
+      chatToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(container.querySelector('[data-native-chat-appearance-preview]')).not.toBeNull()
+  })
+
   it('shows language as a primary interface control without opening Advanced', async () => {
     mocks.state.settingsSearchQuery = ''
     const container = await renderAppearancePane(getDefaultSettings('/tmp'))

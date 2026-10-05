@@ -14,17 +14,20 @@ import { NumberField, SettingsRow, SettingsSegmentedControl } from './SettingsFo
 import { getChatAppearanceEntriesByKey, getChatWidthOptions } from './chat-appearance-search'
 import { writeNativeChatAppearance } from '../native-chat/native-chat-appearance-write'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
+import { NativeChatAppearancePreview } from '../native-chat/NativeChatAppearancePreview'
 
 export type AppearanceChatSectionProps = {
   settings: GlobalSettings
   updateSettings: (updates: Partial<GlobalSettings>) => void
   forceVisiblePrimary?: boolean
+  previewVisible?: boolean
 }
 
 export function AppearanceChatSection({
   settings,
   updateSettings,
-  forceVisiblePrimary = false
+  forceVisiblePrimary = false,
+  previewVisible = true
 }: AppearanceChatSectionProps): React.JSX.Element {
   const appearance = resolveNativeChatAppearanceSettings(settings.nativeChatAppearance)
   const keybindings = useAppStore((state) => state.keybindings)
@@ -39,6 +42,7 @@ export function AppearanceChatSection({
   }
   return (
     <div className="divide-y divide-border/40">
+      {previewVisible ? <NativeChatAppearancePreview settings={settings} /> : null}
       <AppearanceChatContrastControls
         appearance={appearance}
         onChange={update}
