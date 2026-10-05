@@ -1,26 +1,18 @@
-/** Pure font-scale logic for the desktop native chat view — the keyboard analog
- *  of the mobile pinch-zoom. The chat text scale is clamped to a readable band
- *  and adjusted in fixed steps so Cmd/Ctrl +/-/0 behave like a browser zoom but
- *  scoped to the chat surface only. Kept DOM-free so it can be unit-tested. */
+import {
+  normalizeNativeChatAppearanceSettings,
+  resolveNativeChatAppearanceSettings,
+  type NativeChatAppearanceSettings
+} from '../../../../shared/native-chat-appearance-settings'
 
-export const MIN_CHAT_FONT_SCALE = 0.8
-export const MAX_CHAT_FONT_SCALE = 1.6
-export const DEFAULT_CHAT_FONT_SCALE = 1
-export const CHAT_FONT_SCALE_STEP = 0.1
-
-/** Clamp a scale into the readable band and round away float drift so repeated
- *  steps land on clean tenths (e.g. 0.7999999 -> 0.8). */
-function clampChatFontScale(scale: number): number {
-  const clamped = Math.min(MAX_CHAT_FONT_SCALE, Math.max(MIN_CHAT_FONT_SCALE, scale))
-  return Math.round(clamped * 100) / 100
-}
-
-export function increaseChatFontScale(scale: number): number {
-  return clampChatFontScale(scale + CHAT_FONT_SCALE_STEP)
-}
-
-export function decreaseChatFontScale(scale: number): number {
-  return clampChatFontScale(scale - CHAT_FONT_SCALE_STEP)
+export function chatFontSizeForAction(
+  appearance: NativeChatAppearanceSettings | undefined,
+  action: Exclude<ChatFontScaleAction, null>
+): NativeChatAppearanceSettings | undefined {
+  const { fontSize } = resolveNativeChatAppearanceSettings(appearance)
+  return normalizeNativeChatAppearanceSettings({
+    ...appearance,
+    fontSize: action === 'reset' ? undefined : fontSize + (action === 'increase' ? 1 : -1)
+  })
 }
 
 export type ChatFontScaleAction = 'increase' | 'decrease' | 'reset' | null

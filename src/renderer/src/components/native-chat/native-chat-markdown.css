@@ -16,7 +16,7 @@
   background: var(--chat-inline-code-surface);
   padding: 0.0625rem 0.3125rem;
   color: var(--chat-code-foreground);
-  font-size: 0.86em;
+  font-size: var(--chat-code-font-size, 12px);
 }
 
 .native-chat-markdown pre:not([data-native-chat-code-content]) {

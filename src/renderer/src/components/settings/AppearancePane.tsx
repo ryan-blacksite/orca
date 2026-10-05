@@ -1,3 +1,5 @@
+import { resolveNativeChatAppearanceSettings } from '../../../../shared/native-chat-appearance-settings'
+import { getChatAppearanceSearchEntries, getChatWidthOptions } from './chat-appearance-search'
 import type React from 'react'
 import { useLayoutEffect, useState } from 'react'
 import { AppWindow, MessageSquare, PanelLeft, TerminalSquare } from 'lucide-react'
@@ -128,7 +130,20 @@ export function AppearancePane({
     'Terminal'
   )
   const chatTitle = translate('settings.appearance.chat.title', 'Chat')
-  const chatMatches = matchesSettingsSearch(searchQuery, { title: chatTitle })
+  const chatMatches = matchesSettingsSearch(searchQuery, [
+    { title: chatTitle },
+    ...getChatAppearanceSearchEntries()
+  ])
+  const chatLabelMatches = matchesSettingsSearch(searchQuery, { title: chatTitle })
+  const chatAppearance = resolveNativeChatAppearanceSettings(settings.nativeChatAppearance)
+  const chatSummary = translate(
+    'settings.appearance.chat.summary',
+    '{{fontSize}}px · {{width}} width',
+    {
+      fontSize: chatAppearance.fontSize,
+      width: getChatWidthOptions().find((option) => option.value === chatAppearance.width)?.label
+    }
+  )
   const windowSidebarTitle = translate(
     'auto.components.settings.AppearancePane.windowSidebarTitle',
     'Window & Sidebar'
@@ -265,12 +280,16 @@ export function AppearancePane({
           id="chat"
           icon={<MessageSquare aria-hidden="true" />}
           title={chatTitle}
-          summary={translate('settings.appearance.chat.defaultSummary', '14px · Comfortable width')}
+          summary={chatSummary}
           open={isSectionOpen('chat')}
           onToggle={() => toggleSection('chat')}
           toggleDisabled={isSearching}
         >
-          <AppearanceChatSection settings={settings} updateSettings={updateSettings} />
+          <AppearanceChatSection
+            settings={settings}
+            updateSettings={updateSettings}
+            forceVisiblePrimary={chatLabelMatches}
+          />
         </AppearanceSection>
       ) : null}
 

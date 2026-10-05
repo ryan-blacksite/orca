@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  chatFontScaleActionForEvent,
-  decreaseChatFontScale,
-  increaseChatFontScale,
-  MAX_CHAT_FONT_SCALE,
-  MIN_CHAT_FONT_SCALE
-} from './native-chat-font-scale'
+import { chatFontScaleActionForEvent, chatFontSizeForAction } from './native-chat-font-scale'
 
 type Combo = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey'>
 
@@ -13,23 +7,18 @@ function combo(overrides: Partial<Combo>): Combo {
   return { key: '=', metaKey: false, ctrlKey: false, ...overrides }
 }
 
-describe('increase/decreaseChatFontScale', () => {
-  it('steps up by a tenth without drift', () => {
-    expect(increaseChatFontScale(1)).toBe(1.1)
-    expect(increaseChatFontScale(1.1)).toBe(1.2)
+describe('chatFontSizeForAction', () => {
+  it('steps by one pixel and clamps at both limits', () => {
+    expect(chatFontSizeForAction(undefined, 'increase')).toEqual({ fontSize: 15 })
+    expect(chatFontSizeForAction({ fontSize: 20 }, 'increase')).toEqual({ fontSize: 20 })
+    expect(chatFontSizeForAction({ fontSize: 12 }, 'decrease')).toEqual({ fontSize: 12 })
+    expect(chatFontSizeForAction({ fontSize: 15 }, 'decrease')).toBeUndefined()
   })
-
-  it('steps down by a tenth without drift', () => {
-    expect(decreaseChatFontScale(1)).toBe(0.9)
-    expect(decreaseChatFontScale(0.9)).toBe(0.8)
-  })
-
-  it('does not exceed the max when stepping up at the ceiling', () => {
-    expect(increaseChatFontScale(MAX_CHAT_FONT_SCALE)).toBe(MAX_CHAT_FONT_SCALE)
-  })
-
-  it('does not drop below the min when stepping down at the floor', () => {
-    expect(decreaseChatFontScale(MIN_CHAT_FONT_SCALE)).toBe(MIN_CHAT_FONT_SCALE)
+  it('reset removes only text size and preserves code size and width', () => {
+    expect(
+      chatFontSizeForAction({ fontSize: 18, codeFontSize: 16, width: 'wide' }, 'reset')
+    ).toEqual({ codeFontSize: 16, width: 'wide' })
+    expect(chatFontSizeForAction({ fontSize: 18 }, 'reset')).toBeUndefined()
   })
 })
 

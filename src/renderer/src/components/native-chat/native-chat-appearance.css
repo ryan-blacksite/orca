@@ -1,0 +1,4 @@
+/* Code size is independent of the surrounding message typography. */
+.native-chat-appearance :is(code, pre, .font-mono) {
+  font-size: var(--chat-code-font-size, 12px);
+}

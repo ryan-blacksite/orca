@@ -1,3 +1,4 @@
+import { nativeChatAppearanceStyle } from './native-chat-appearance-style'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNativeChatComposerRevealFocus } from './use-native-chat-composer-reveal-focus'
 import { useAppStore } from '../../store'
@@ -308,9 +309,9 @@ export function NativeChatResolvedView({
     { sessionId, isVisible }
   )
 
-  // Chat-only font zoom via Cmd/Ctrl +/-/0, gated to the live conversation so
-  // the chord is inert on the loading/empty/error states and elsewhere.
-  const fontScale = useNativeChatFontScale(isConversation)
+  // Only the focused conversation accepts chat text-size shortcuts.
+  useNativeChatFontScale(isConversation && isVisible && isFocusedGroup, rootRef)
+  const appearanceSettings = useAppStore((state) => state.settings)
 
   return (
     <div
@@ -348,7 +349,8 @@ export function NativeChatResolvedView({
       onMouseUpCapture={contextMenu.onSelectionCapture}
       onKeyUpCapture={contextMenu.onSelectionCapture}
       onContextMenuCapture={contextMenu.onContextMenuCapture}
-      className="flex h-full min-h-0 w-full flex-col bg-chat-canvas focus:outline-none"
+      className="native-chat-appearance flex h-full min-h-0 w-full flex-col bg-chat-canvas focus:outline-none"
+      style={nativeChatAppearanceStyle(appearanceSettings)}
     >
       <div className="flex min-h-0 flex-1 flex-col">
         {viewState.kind === 'loading' ? (
@@ -363,7 +365,6 @@ export function NativeChatResolvedView({
             isVisible={isVisible}
             isWorking={turnActive}
             expandSignal={false}
-            fontScale={fontScale.scale}
             {...turnTiming}
             awaitingInput={awaitingInput}
             onLinkClick={onLinkClick}
