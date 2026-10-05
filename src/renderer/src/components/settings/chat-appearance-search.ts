@@ -1,21 +1,13 @@
 import { translate } from '@/i18n/i18n'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 import type { SettingsSearchEntry } from './settings-search'
-import { isMacPlatform } from '../native-chat/native-chat-shortcut'
+import { formatShortcutLabel } from '@/hooks/useShortcutLabel'
 
-export const getChatAppearanceEntriesByKey = createLocalizedCatalog(
+const getChatAppearanceCatalog = createLocalizedCatalog(
   () =>
     ({
       textSize: {
         title: translate('settings.appearance.chat.textSize', 'Text size'),
-        description: translate(
-          'settings.appearance.chat.textSizeDescription',
-          'Messages, tool activity and the message box. {{increase}} / {{decrease}} in a chat change this too.',
-          {
-            increase: isMacPlatform() ? '⌘+' : 'Ctrl++',
-            decrease: isMacPlatform() ? '⌘−' : 'Ctrl+−'
-          }
-        ),
         keywords: [translate('settings.appearance.chat.title', 'Chat')]
       },
       codeTextSize: {
@@ -46,6 +38,24 @@ export const getChatAppearanceEntriesByKey = createLocalizedCatalog(
       }
     }) satisfies Record<string, SettingsSearchEntry>
 )
+
+export function getChatAppearanceEntriesByKey(shortcuts?: { increase: string; decrease: string }) {
+  const entries = getChatAppearanceCatalog()
+  return {
+    ...entries,
+    textSize: {
+      ...entries.textSize,
+      description: translate(
+        'settings.appearance.chat.textSizeDescription',
+        'Messages, tool activity and the message box. {{increase}} / {{decrease}} in a chat change this too.',
+        {
+          increase: shortcuts?.increase ?? formatShortcutLabel('zoom.in'),
+          decrease: shortcuts?.decrease ?? formatShortcutLabel('zoom.out')
+        }
+      )
+    }
+  }
+}
 
 export function getChatAppearanceSearchEntries(): SettingsSearchEntry[] {
   return Object.values(getChatAppearanceEntriesByKey())

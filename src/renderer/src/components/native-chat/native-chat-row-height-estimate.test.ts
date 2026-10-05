@@ -21,6 +21,20 @@ function message(text: string, role: NativeChatMessage['role'] = 'assistant'): N
 }
 
 describe('transcript row height estimate', () => {
+  it('reuses row metrics across a one-pixel resize and refreshes after a substantial resize', () => {
+    const prose = message('x'.repeat(900))
+    const metricsAtWidth = (width: number) => {
+      const style = nativeChatAppearanceStyle({ nativeChatAppearance: { width: 'wide' } }, width)
+      return nativeChatRowContentMetrics(prose, {
+        lineHeightPx: style['--chat-estimated-line-height'],
+        charsPerLine: style['--chat-estimated-chars-per-line']
+      })
+    }
+    const initial = metricsAtWidth(800)
+    expect(metricsAtWidth(801)).toBe(initial)
+    expect(metricsAtWidth(864)).not.toBe(initial)
+  })
+
   it('adjusts line height and wrapping together for text size and column width', () => {
     const prose = message('x'.repeat(900))
     const height = (

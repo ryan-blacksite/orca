@@ -12,10 +12,16 @@ export type NativeChatAppearanceStyle = CSSProperties & {
   '--chat-font-size': string
   '--chat-code-font-size': string
   '--chat-content-max-width': string
-  '--chat-secondary-font-size': string
   '--chat-inline-code-ratio': string
   '--chat-estimated-line-height': number
   '--chat-estimated-chars-per-line': number
+}
+
+// Width buckets keep a pixel-by-pixel resize from re-deriving the entire transcript.
+export function nativeChatColumnWidthBucket(width: number | null | undefined): number | null {
+  return typeof width === 'number' && Number.isFinite(width) && width > 0
+    ? Math.max(1, Math.floor(width / 32) * 32)
+    : null
 }
 
 export function nativeChatAppearanceStyle(
@@ -26,22 +32,21 @@ export function nativeChatAppearanceStyle(
     settings?.nativeChatAppearance
   )
   const maxWidthPx = width === 'wide' ? 960 : width === 'full' ? Number.POSITIVE_INFINITY : 736
+  const measuredWidth = nativeChatColumnWidthBucket(measuredColumnWidthPx)
   const columnWidthPx = Math.min(
-    measuredColumnWidthPx && measuredColumnWidthPx > 0
-      ? measuredColumnWidthPx
-      : width === 'wide'
-        ? 960
-        : 736,
+    measuredWidth ? measuredWidth : width === 'wide' ? 960 : 736,
     maxWidthPx
   )
   return {
     '--chat-font-size': `${fontSize}px`,
     '--chat-code-font-size': `${codeFontSize}px`,
     '--chat-content-max-width': width === 'full' ? 'none' : width === 'wide' ? '60rem' : '46rem',
-    '--chat-secondary-font-size': `${fontSize - 2}px`,
     '--chat-inline-code-ratio': `${codeFontSize / fontSize}em`,
     '--chat-estimated-line-height': (22 * fontSize) / 14,
-    '--chat-estimated-chars-per-line': Math.max(1, (((96 * columnWidthPx) / 736) * 14) / fontSize)
+    '--chat-estimated-chars-per-line': Math.max(
+      1,
+      Math.floor((((96 * columnWidthPx) / 736) * 14) / fontSize)
+    )
   }
 }
 

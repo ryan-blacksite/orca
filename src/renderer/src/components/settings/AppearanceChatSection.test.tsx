@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import type { KeybindingOverrides } from '../../../../shared/keybindings'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
@@ -6,13 +7,55 @@ import { AppearanceChatSection } from './AppearanceChatSection'
 import { getAppearancePaneSearchEntries } from './appearance-search'
 import { matchesSettingsSearch } from './settings-search'
 
+const mocks = vi.hoisted(
+  (): {
+    state: { settingsSearchQuery: string; keybindings?: KeybindingOverrides }
+    platform: NodeJS.Platform
+  } => ({ state: { settingsSearchQuery: '' }, platform: 'linux' })
+)
+
+vi.mock('@/lib/shortcut-platform', () => ({ getShortcutPlatform: () => mocks.platform }))
+
 vi.mock('../../store', () => ({
-  useAppStore: (selector: (state: { settingsSearchQuery: string }) => unknown) =>
-    selector({ settingsSearchQuery: '' })
+  useAppStore: (selector: (state: typeof mocks.state) => unknown) => selector(mocks.state)
 }))
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  mocks.state.keybindings = undefined
+  mocks.platform = 'linux'
+})
 
 describe('chat appearance settings card', () => {
+  it.each([
+    { platform: 'darwin', prefix: '⌘' },
+    { platform: 'win32', prefix: 'Ctrl+' },
+    { platform: 'linux', prefix: 'Ctrl+' }
+  ] as const)(
+    'shows current zoom bindings on $platform and updates after rebinding',
+    ({ platform, prefix }) => {
+      mocks.platform = platform
+      mocks.state.keybindings = { 'zoom.in': ['Mod+Y'], 'zoom.out': ['Mod+U'] }
+      const card = (
+        <AppearanceChatSection settings={getDefaultSettings('/tmp')} updateSettings={vi.fn()} />
+      )
+      const { rerender } = render(card)
+      expect(
+        screen.getByText(
+          `Messages, tool activity and the message box. ${prefix}Y / ${prefix}U in a chat change this too.`
+        )
+      ).toBeTruthy()
+      mocks.state.keybindings = { 'zoom.in': ['Mod+I'], 'zoom.out': ['Mod+O'] }
+      rerender(
+        <AppearanceChatSection settings={getDefaultSettings('/tmp')} updateSettings={vi.fn()} />
+      )
+      expect(
+        screen.getByText(
+          `Messages, tool activity and the message box. ${prefix}I / ${prefix}O in a chat change this too.`
+        )
+      ).toBeTruthy()
+    }
+  )
+
   it('uses derived defaults and writes overrides through the existing controls', () => {
     const updateSettings = vi.fn()
     render(

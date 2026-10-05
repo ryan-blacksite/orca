@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type * as ShortcutLabelModule from '@/hooks/useShortcutLabel'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { I18nextProvider } from 'react-i18next'
@@ -36,7 +37,8 @@ vi.mock('../../store', () => ({
   useAppStore: (selector: (state: typeof mocks.state) => unknown) => selector(mocks.state)
 }))
 
-vi.mock('@/hooks/useShortcutLabel', () => ({
+vi.mock('@/hooks/useShortcutLabel', async (importOriginal) => ({
+  ...(await importOriginal<typeof ShortcutLabelModule>()),
   useShortcutKeyComboDetails: () => []
 }))
 

@@ -24,7 +24,6 @@ import {
 } from '../../../../shared/native-chat-tool-pairing'
 import {
   describeLatestToolCall,
-  isCommandToolName,
   NATIVE_CHAT_TOOL_ACTIVITY_COPY,
   selectActiveToolCall
 } from '../../../../shared/native-chat-tool-activity'
@@ -301,12 +300,7 @@ export function NativeChatToolRun({
             <Check aria-hidden className="size-3 shrink-0 text-muted-foreground" />
           ) : null}
           {latestCallLabel ? (
-            <span
-              data-native-chat-code-content={
-                latestCall && isCommandToolName(latestCall.name) ? true : undefined
-              }
-              className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
-            >
+            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
               {latestCallLabel}
             </span>
           ) : null}

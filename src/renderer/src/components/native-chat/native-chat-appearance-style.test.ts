@@ -18,7 +18,7 @@ describe('chat root appearance style', () => {
     expect(full['--chat-estimated-chars-per-line']).toBeGreaterThan(
       wide['--chat-estimated-chars-per-line']
     )
-    expect(nativeChatAppearanceStyle(undefined, 368)['--chat-estimated-chars-per-line']).toBe(48)
+    expect(nativeChatAppearanceStyle(undefined, 384)['--chat-estimated-chars-per-line']).toBe(50)
   })
 
   it('provides default text, independent code size, and comfortable width', () => {
@@ -26,7 +26,6 @@ describe('chat root appearance style', () => {
       '--chat-font-size': '14px',
       '--chat-code-font-size': '12px',
       '--chat-content-max-width': '46rem',
-      '--chat-secondary-font-size': '12px',
       '--chat-estimated-line-height': 22,
       '--chat-estimated-chars-per-line': 96
     })
