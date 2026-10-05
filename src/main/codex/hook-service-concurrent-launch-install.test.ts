@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as CodexHookHashLookup from './codex-hook-hash-lookup'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type * as Os from 'node:os'
@@ -21,7 +22,14 @@ vi.mock('os', async (importOriginal) => {
   return { ...actual, homedir: homedirMock }
 })
 vi.mock('./codex-hook-local-install', () => ({
-  installCodexHooksExclusively: installExclusivelyMock
+  installCodexHooksExclusively: installExclusivelyMock,
+  readApprovedManagedOrcaHashes: () => null
+}))
+// Why: stands in for asking a real Codex for its hook hashes.
+vi.mock('./codex-hook-hash-lookup', async (importOriginal) => ({
+  ...(await importOriginal<typeof CodexHookHashLookup>()),
+  resolveCodexHookAnswerForLaunch: async () =>
+    (await import('./hook-service-test-harness')).codexHookAnswerForTests()
 }))
 vi.mock('./codex-hook-local-maintenance', () => ({
   refreshCodexRuntimeUserHooksExclusively: refreshExclusivelyMock,
@@ -34,7 +42,7 @@ let tmpHome: string
 let userDataDir: string
 let previousUserDataPath: string | undefined
 
-/** Stands in for a real `codex app-server` grant session, measured at ~380ms locally. */
+/** Stands in for a managed-home install's file writes. */
 const INSTALL_MS = 60
 
 function installedStatus(configPath: string): AgentHookInstallStatus {

@@ -207,13 +207,12 @@ describe('CodexHookService', () => {
     )
     expect(readFileSync(runtimeTomlPath, 'utf-8').split(permissionRequestHeader)).toHaveLength(3)
 
-    // Why: preserving `enabled = false` is the repair contract; status can be
-    // partial because the user-disabled managed hook remains disabled.
-    expect(['installed', 'partial']).toContain((await service.install()).state)
+    // Why enabled: Orca's own entry is re-enabled, since its setting is the only off switch.
+    expect((await service.install()).state).toBe('installed')
 
     const repairedToml = readFileSync(runtimeTomlPath, 'utf-8')
     expect(repairedToml.split(permissionRequestHeader)).toHaveLength(2)
-    expect(repairedToml).toContain('enabled = false')
+    expect(repairedToml).not.toContain('enabled = false')
     expect(repairedToml).not.toContain('STALE_DISABLED')
     expect(repairedToml).not.toContain('STALE_ENABLED')
     expect(repairedToml).toContain('model = "system-model"')

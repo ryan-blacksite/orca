@@ -20,6 +20,7 @@ import {
   removeCodexTrustGrantLedgerHome,
   type CodexTrustGrantLedgerHome
 } from './codex-trust-grant-ledger'
+import type { CodexHookHashes } from './codex-hook-trust-derivation'
 
 export function readCodexTrustGrantLedgerHomeForReconciliation(
   runtimeHomePath: string
@@ -31,7 +32,7 @@ export function readCodexTrustGrantLedgerHomeForReconciliation(
   }
 }
 
-export function getCodexLedgerTrustedHash(
+function getCodexLedgerTrustedHash(
   ledgerHome: CodexTrustGrantLedgerHome | null,
   key: string,
   expectedEntry: CodexTrustEntry
@@ -66,6 +67,8 @@ type CodexManagedHookTrustOwnershipOptions = {
   sourceUsesExplicitCodexHome?: boolean
   /** Other spellings Codex may key the same hooks.json by; their copies carry the same hash. */
   aliasSourcePaths?: readonly string[]
+  /** Codex's own hashes Orca may have approved its entry with, from any Codex version. */
+  codexHashes?: readonly CodexHookHashes[]
 }
 
 function getCodexManagedHookTrustEntryKeys(
@@ -110,6 +113,12 @@ function getCodexManagedHookTrustEntryKeys(
         computeTrustKey(expectedEntry),
         expectedEntry
       )
+    }
+    for (const hashes of options.codexHashes ?? []) {
+      const codexHash = hashes[parts.eventLabel]
+      if (codexHash) {
+        recognizedHashes.add(codexHash)
+      }
     }
     if (state.trustedHash && recognizedHashes.has(state.trustedHash)) {
       ownedKeys.push(key)

@@ -4,10 +4,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createManagedCommandMatcher } from '../agent-hooks/installer-utils'
 import {
+  computeTrustedHash,
   getCodexExplicitHomeHookSourcePath,
   normalizeCodexHookSourcePath
 } from './config-toml-trust'
 import { _internals as grantInternals } from './codex-hook-trust-grant'
+import { _internals as lookupInternals } from './codex-hook-hash-lookup'
+import {
+  buildCodexManagedHook,
+  CODEX_EVENTS,
+  CODEX_EVENT_LABEL,
+  getManagedCommand,
+  getManagedScriptPath
+} from './codex-hook-definition'
+import type { CodexHookHashes } from './codex-hook-trust-derivation'
+import type { CodexHookTrustAnswer } from './codex-hook-trust-memo'
 
 // Why (#16441): the grant session now runs in-process instead of in a
 // forked bundle that never existed under vitest. Without this stub these
@@ -23,15 +34,48 @@ export type CodexHookHomes = {
   userDataDir: string
 }
 
-/** Mutable holder: fields are re-pointed at fresh temp dirs by the registered beforeEach. */
-/** Applies the stub above; for suites that build their own temp homes. */
+/** The hashes a real Codex gives Orca's entry, computed in-process as Codex does. */
+export function computeCodexHookHashesForTests(
+  command: string = getManagedCommand(getManagedScriptPath())
+): CodexHookHashes {
+  return Object.fromEntries(
+    CODEX_EVENTS.map((eventName) => {
+      const eventLabel = CODEX_EVENT_LABEL[eventName]
+      const timeoutSec = buildCodexManagedHook(command, eventName).timeout
+      return [
+        eventLabel,
+        computeTrustedHash({
+          sourcePath: '',
+          eventLabel,
+          groupIndex: 0,
+          handlerIndex: 0,
+          command,
+          timeoutSec
+        })
+      ]
+    })
+  )
+}
+
+/** The answer a real Codex gives about Orca's entry. */
+export function codexHookAnswerForTests(): CodexHookTrustAnswer {
+  return {
+    codexVersion: 'codex-cli 0.150.1',
+    hashes: computeCodexHookHashesForTests(),
+    failure: null
+  }
+}
+
+/** Applies the stubs above; for suites that build their own temp homes. */
 export function stubCodexTrustSessionsForTests(): void {
   grantInternals.setGrantSessionRunner(stubMissingCodexBinary)
+  lookupInternals.setHashResolverForTesting(async () => codexHookAnswerForTests())
 }
 
 export function restoreCodexTrustSessionsForTests(): void {
   grantInternals.setGrantSessionRunner(null)
   grantInternals.resetDiagnostics()
+  lookupInternals.resetForTesting()
 }
 
 export function setupCodexHookHomes(
