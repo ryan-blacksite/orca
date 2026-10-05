@@ -1,6 +1,5 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
-import type { ChildProcess } from 'node:child_process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }))
@@ -9,12 +8,12 @@ vi.mock('node:child_process', () => ({ spawn: spawnMock }))
 import { searchWithGitGrep } from './fs-handler-git-fallback'
 import { searchWithRg } from './fs-handler-utils'
 
-function createProcess(): ChildProcess {
+function createProcess() {
   return Object.assign(new EventEmitter(), {
     stdout: new PassThrough(),
     stderr: new EventEmitter(),
     kill: vi.fn()
-  }) as unknown as ChildProcess
+  })
 }
 
 const searchCases = [
