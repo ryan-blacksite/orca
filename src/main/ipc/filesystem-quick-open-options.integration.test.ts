@@ -1,14 +1,18 @@
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 import type { Store } from '../persistence'
 import { listQuickOpenFiles } from './filesystem-list-files'
 import { listFilesWithRg } from '../../relay/fs-handler-list-files'
 import { searchQuickOpenFilePaths } from './filesystem-search-file-paths'
+import { bundledRipgrepCommand } from '../ripgrep/bundled-ripgrep-path'
+import { configureRelayBundledRipgrep } from '../../relay/relay-bundled-ripgrep'
 
 const fixtures: string[] = []
+beforeEach(() => configureRelayBundledRipgrep(bundledRipgrepCommand()))
 afterEach(async () => {
+  configureRelayBundledRipgrep(undefined)
   await Promise.all(fixtures.splice(0).map((path) => rm(path, { recursive: true, force: true })))
 })
 
