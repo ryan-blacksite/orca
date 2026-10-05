@@ -10,6 +10,7 @@ import { resolveHooksJsonWritePath } from '../agent-hooks/hook-config-write-path
 import {
   assertHooksJsonGeneration,
   getRealHomeConfigTomlPath,
+  getRealHomeHookKeySourcePaths,
   getRealHomeHooksJsonPath
 } from './codex-real-home-hooks-json'
 import { getCodexManagedScriptFileName } from './codex-hook-identity'
@@ -55,8 +56,9 @@ export async function sweepRealHomeCodexHook(): Promise<'removed' | 'unavailable
   }
   if (removedAny) {
     const hooksWritePath = resolveHooksJsonWritePath(hooksJsonPath)
+    const [sourcePath, ...aliasSourcePaths] = getRealHomeHookKeySourcePaths()
     mutateRealHomeHooksPreservingUserTrust({
-      sourcePath: hooksJsonPath,
+      sourcePaths: [sourcePath, ...aliasSourcePaths],
       tomlPath: getRealHomeConfigTomlPath(),
       beforeHooks: config.hooks,
       afterHooks: nextHooks,
@@ -73,7 +75,8 @@ export async function sweepRealHomeCodexHook(): Promise<'removed' | 'unavailable
       removeCodexManagedHookTrustEntries({
         tomlPath: getRealHomeConfigTomlPath(),
         runtimeHomePath: getSystemCodexHomePath(),
-        sourcePath: hooksJsonPath,
+        sourcePath,
+        aliasSourcePaths,
         command: material.command,
         managedEventLabels: new Set(Object.values(material.eventLabel)),
         timeoutSec: MANAGED_HOOK_TIMEOUT_SECONDS

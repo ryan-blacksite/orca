@@ -1,3 +1,5 @@
+import { parse as parseToml } from 'smol-toml'
+import { isPlainObject } from '../agent-hooks/hooks-json-read'
 import type { CodexHookTrustState } from './config-toml-trust'
 import { normalizeCodexHookTrustLookupKey } from './codex-trust-identity'
 import { findAllHookTrustBlocks } from './config-toml-hook-trust-blocks'
@@ -27,6 +29,44 @@ export class CodexHookTrustEntryMap extends Map<string, CodexHookTrustState> {
 }
 
 export function readHookTrustContent(content: string): Map<string, CodexHookTrustState> {
+  const result = readHookTrustTables(content)
+  // Why: approvals written as dotted keys or inline tables have no [hooks.state."k"] header.
+  for (const [key, state] of readParsedHookTrust(content)) {
+    if (!result.has(key)) {
+      result.set(key, state)
+    }
+  }
+  return result
+}
+
+function readParsedHookTrust(content: string): [string, CodexHookTrustState][] {
+  let parsed: unknown
+  try {
+    parsed = parseToml(content)
+  } catch {
+    return []
+  }
+  const hooks = isPlainObject(parsed) ? parsed.hooks : undefined
+  const state = isPlainObject(hooks) ? hooks.state : undefined
+  if (!isPlainObject(state)) {
+    return []
+  }
+  return Object.entries(state).flatMap(([key, value]): [string, CodexHookTrustState][] =>
+    isPlainObject(value)
+      ? [
+          [
+            key,
+            {
+              trustedHash: typeof value.trusted_hash === 'string' ? value.trusted_hash : undefined,
+              enabled: typeof value.enabled === 'boolean' ? value.enabled : undefined
+            }
+          ]
+        ]
+      : []
+  )
+}
+
+function readHookTrustTables(content: string): CodexHookTrustEntryMap {
   const result = new CodexHookTrustEntryMap()
   const conflictingTrustedHashKeys = new Set<string>()
   for (const block of findAllHookTrustBlocks(content)) {

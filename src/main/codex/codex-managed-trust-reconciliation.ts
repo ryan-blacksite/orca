@@ -64,6 +64,8 @@ type CodexManagedHookTrustOwnershipOptions = {
   timeoutSec: number
   /** Explicit native homes resolve their parent before hook discovery. */
   sourceUsesExplicitCodexHome?: boolean
+  /** Other spellings Codex may key the same hooks.json by; their copies carry the same hash. */
+  aliasSourcePaths?: readonly string[]
 }
 
 function getCodexManagedHookTrustEntryKeys(
@@ -74,14 +76,17 @@ function getCodexManagedHookTrustEntryKeys(
   const expectedSourcePath = options.sourceUsesExplicitCodexHome
     ? getCodexExplicitHomeHookSourcePath(options.sourcePath)
     : normalizeCodexHookSourcePath(options.sourcePath)
+  const aliasSourcePaths = (options.aliasSourcePaths ?? []).map(normalizeCodexHookSourcePath)
   const ownedKeys: string[] = []
   for (const [key, state] of existingEntries) {
     const parts = parseTrustKey(key)
-    if (
-      !parts ||
-      !codexHookSourcePathsEqual(parts.sourcePath, expectedSourcePath) ||
-      !options.managedEventLabels.has(parts.eventLabel)
-    ) {
+    if (!parts || !options.managedEventLabels.has(parts.eventLabel)) {
+      continue
+    }
+    const isAlias = aliasSourcePaths.some((alias) =>
+      codexHookSourcePathsEqual(parts.sourcePath, alias)
+    )
+    if (!isAlias && !codexHookSourcePathsEqual(parts.sourcePath, expectedSourcePath)) {
       continue
     }
     const expectedEntry: CodexTrustEntry = {
@@ -97,6 +102,15 @@ function getCodexManagedHookTrustEntryKeys(
       computeTrustedHash({ ...expectedEntry, timeoutSec: undefined })
     ])
     addLedgerRecognizedHashes(recognizedHashes, [ledgerHome], key, expectedEntry)
+    if (isAlias) {
+      // Why: the ledger records Codex's grant under the primary spelling's key only.
+      addLedgerRecognizedHashes(
+        recognizedHashes,
+        [ledgerHome],
+        computeTrustKey(expectedEntry),
+        expectedEntry
+      )
+    }
     if (state.trustedHash && recognizedHashes.has(state.trustedHash)) {
       ownedKeys.push(key)
     }

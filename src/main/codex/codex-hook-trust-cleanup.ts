@@ -95,7 +95,10 @@ export function removeStaleRuntimeHookTrustEntries(
     if (!parsed || !codexHookSourcePathsEqual(parsed.sourcePath, canonicalRuntimeHooksPath)) {
       continue
     }
-    if (expectedHashes.get(normalizeHookTrustKeyForLookup(key)) === state.trustedHash) {
+    const expectedHash = expectedHashes.get(normalizeHookTrustKeyForLookup(key))
+    // Why a defined hash: conflicting duplicate tables read as no hash, and an
+    // unexpected key must not match that and survive.
+    if (expectedHash !== undefined && expectedHash === state.trustedHash) {
       continue
     }
     staleKeys.push(key)
@@ -107,12 +110,14 @@ export function removeStaleRuntimeHookTrustEntries(
 
 export function removeSystemManagedHookTrustEntries(
   systemHomePath: string,
-  hooksJsonPath: string
+  sourcePaths: readonly [string, ...string[]]
 ): void {
+  const [sourcePath, ...aliasSourcePaths] = sourcePaths
   removeCodexManagedHookTrustEntries({
     tomlPath: getSystemCodexConfigTomlPath(),
     runtimeHomePath: systemHomePath,
-    sourcePath: hooksJsonPath,
+    sourcePath,
+    aliasSourcePaths,
     command: getManagedCommand(getManagedScriptPath()),
     managedEventLabels: CODEX_MANAGED_EVENT_LABELS,
     timeoutSec: MANAGED_HOOK_TIMEOUT_SECONDS

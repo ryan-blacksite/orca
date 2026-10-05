@@ -21,6 +21,7 @@ import {
   removeSelfComputedMatchingTrustEntries
 } from './codex-hook-trust-cleanup'
 import { runExclusivelyForCodexTrustConfig } from './codex-trust-config-mutation-queue'
+import { getRealHomeHookKeySourcePaths } from './codex-real-home-hooks-json'
 import { mutateRealHomeHooksPreservingUserTrust } from './codex-user-hook-trust-moves'
 
 const LEGACY_ORCA_PROFILE_NAME = 'orca-agent-status'
@@ -95,7 +96,7 @@ async function sweepLegacySystemManagedHooks(): Promise<void> {
     // Remove only retired Orca hook entries and preserve other managers' metadata.
     const hooksWritePath = resolveHooksJsonWritePath(legacyConfigPath)
     mutateRealHomeHooksPreservingUserTrust({
-      sourcePath: legacyConfigPath,
+      sourcePaths: getRealHomeHookKeySourcePaths(),
       tomlPath: getSystemCodexConfigTomlPath(),
       beforeHooks: config.hooks,
       afterHooks: nextHooks,
