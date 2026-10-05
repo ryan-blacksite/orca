@@ -6,6 +6,7 @@ import {
   store,
   WORKTREE_FEATURE_PATH,
   readdirMock,
+  realpathMock,
   getSshFilesystemProviderMock,
   resetFilesystemIpcMocks
 } from './filesystem-test-harness'
@@ -112,6 +113,52 @@ describe('registerFilesystemHandlers', () => {
 
     expect(readdirMock).not.toHaveBeenCalled()
     expect(listMarkdownDocumentsMock).not.toHaveBeenCalled()
+  })
+
+  it('exposes registered alias paths that remain readable and rejects child symlink escapes', async () => {
+    const alias = path.resolve('/alias-folder')
+    const canonical = path.resolve('/canonical-folder')
+    const outside = path.resolve('/outside/secret.md')
+    const folderStore = {
+      ...store,
+      getFolderWorkspaces: () => [{ id: 'folder', folderPath: alias, projectGroupId: 'group' }]
+    }
+    realpathMock.mockImplementation(async (target: string) =>
+      target === path.join(alias, 'escape.md')
+        ? outside
+        : target === alias || target.startsWith(alias + path.sep)
+          ? canonical + target.slice(alias.length)
+          : target
+    )
+    listMarkdownDocumentsMock.mockResolvedValue([
+      {
+        filePath: path.join(canonical, 'Target.md'),
+        relativePath: 'Target.md',
+        basename: 'Target.md',
+        name: 'Target'
+      }
+    ])
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This IPC fixture implements the store reads used by filesystem authorization.
+    registerFilesystemHandlers(folderStore as never)
+    const documents = await handlers.get('fs:listMarkdownDocuments')!(null, { rootPath: alias })
+    expect(documents).toEqual([
+      {
+        filePath: path.join(alias, 'Target.md'),
+        relativePath: 'Target.md',
+        basename: 'Target.md',
+        name: 'Target'
+      }
+    ])
+    expect(listMarkdownDocumentsMock).toHaveBeenCalledWith(canonical, {})
+    await expect(
+      handlers.get('fs:readFile')!(null, { filePath: path.join(alias, 'Target.md') })
+    ).resolves.toEqual({ content: 'a'.repeat(10), isBinary: false })
+    await expect(
+      handlers.get('fs:stat')!(null, { filePath: path.join(alias, 'Target.md') })
+    ).resolves.toHaveProperty('isDirectory', false)
+    await expect(
+      handlers.get('fs:readFile')!(null, { filePath: path.join(alias, 'escape.md') })
+    ).rejects.toThrow('Access denied')
   })
 
   it('lists remote markdown documents through the SSH filesystem provider', async () => {

@@ -1,4 +1,5 @@
 import { listFilesystemMarkdownDocuments } from '../../providers/filesystem-markdown-listing'
+import { markdownDocumentsFromRelativePaths } from '../../../shared/markdown-document-paths'
 import {
   capturePathExistence,
   validatePathExistenceBatch,
@@ -105,12 +106,18 @@ export function registerFilesystemReadHandlers(context: FilesystemHandlerContext
         .getFolderWorkspaces?.()
         .some((workspace) => workspace.folderPath === args.rootPath)
       const rootPath = isFolderRoot
-        ? await resolveAuthorizedPath(args.rootPath, store)
+        ? await resolveDesktopAuthorizedPath(args.rootPath, store)
         : await resolveRegisteredWorktreePath(args.rootPath, store)
-      return listMarkdownDocuments(
+      const documents = await listMarkdownDocuments(
         rootPath,
         getLocalGitOptionsForRegisteredWorktree(store, args.rootPath, rootPath)
       )
+      return rootPath === args.rootPath
+        ? documents
+        : markdownDocumentsFromRelativePaths(
+            args.rootPath,
+            documents.map((document) => document.relativePath)
+          )
     }
   )
 
