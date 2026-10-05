@@ -8,9 +8,10 @@ it('keeps passive listings free of target probes and classifies opted-in authori
   const root = await mkdtemp(join(tmpdir(), 'orca-directory-links-'))
   try {
     await mkdir(join(root, 'inside'))
-    await symlink(join(root, 'inside'), join(root, 'folder-link'), 'dir')
-    await symlink(join(root, 'missing'), join(root, 'broken-link'), 'dir')
-    await symlink(root, join(root, 'denied-link'), 'dir')
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir'
+    await symlink(join(root, 'inside'), join(root, 'folder-link'), linkType)
+    await symlink(join(root, 'missing'), join(root, 'broken-link'), linkType)
+    await symlink(root, join(root, 'denied-link'), linkType)
     const entries = await readdir(root, { withFileTypes: true })
     const authorize = vi.fn(async (path: string) => {
       if (path.endsWith('denied-link')) {
