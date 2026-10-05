@@ -158,11 +158,15 @@ describe('deriveCodexHookHashes', () => {
     answerHooksList((scratch) => {
       const home = join(scratch.home, 'hooks.json')
       // Why: Codex 0.128 does not know Interrupt, so it never lists it.
-      return LABELS.filter((label) => label !== 'interrupt').flatMap((label) => [
-        listedWithoutApprovals(home, label, 0),
-        listedWithoutApprovals(home, label, 2),
-        listedWithoutApprovals(join(scratch.project, '.codex', 'hooks.json'), label, 0)
-      ])
+      return LABELS.flatMap((label) =>
+        label === 'interrupt'
+          ? []
+          : [
+              listedWithoutApprovals(home, label, 0),
+              listedWithoutApprovals(home, label, 2),
+              listedWithoutApprovals(join(scratch.project, '.codex', 'hooks.json'), label, 0)
+            ]
+      )
     })
 
     const derived = await deriveCodexHookHashes('/bin/codex', COMMAND, 'codex-cli 0.128.0')

@@ -12,6 +12,7 @@ import {
   readMemoizedCodexHookTrust,
   readMemoizedVersionHashes
 } from './codex-hook-trust-memo'
+import type { CodexHookHashes } from './codex-hook-trust-derivation'
 
 let userData: string
 let codexPath: string
@@ -31,7 +32,11 @@ afterEach(() => {
   rmSync(userData, { recursive: true, force: true })
 })
 
-function remember(path = codexPath, codexVersion = 'codex-cli 0.150.1', hashes = HASHES): void {
+function remember(
+  path = codexPath,
+  codexVersion = 'codex-cli 0.150.1',
+  hashes: CodexHookHashes = HASHES
+): void {
   memoizeCodexHookTrust(path, fingerprintCodex(path), COMMAND, {
     codexVersion,
     hashes,

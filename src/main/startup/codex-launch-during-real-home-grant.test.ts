@@ -67,7 +67,6 @@ vi.mock(
 vi.mock('./main-process-state', async () => {
   const { isRealHomeCodexHookLaneUsable } = await import('../codex/codex-real-home-hook-install')
   const { getOrcaManagedCodexHomePath } = await import('../codex/codex-home-paths')
-  const { _internals: lookupInternals } = await import('../codex/codex-hook-hash-lookup')
   return {
     mainProcessState: {
       codexRuntimeHome: {

@@ -94,7 +94,7 @@ describe('registerPtyHandlers Codex launch refusal on an unreadable managed home
     resolveHome: (
       target?: unknown,
       env?: NodeJS.ProcessEnv,
-      context?: { unavailableManagedHomePath?: string }
+      context?: { unavailableManagedHomePath?: string; launchesCodex?: boolean }
     ) => string | null,
     runtime?: ReturnType<typeof makeRuntime>,
     prepareCodexSessionResume?: () => Promise<never>
