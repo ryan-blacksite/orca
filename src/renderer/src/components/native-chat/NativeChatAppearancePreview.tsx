@@ -30,7 +30,7 @@ export function NativeChatAppearancePreview({
   const { i18n } = useTranslation()
   const messages = useMemo(() => createNativeChatAppearanceSample(i18n.language), [i18n.language])
   return (
-    <div className="my-3 overflow-hidden rounded-xl border border-border/50">
+    <div id="chat-preview" className="my-3 overflow-hidden rounded-xl border border-border/50">
       <div className="border-b border-border/50 bg-background px-3 py-1.5 text-[11px] text-muted-foreground">
         {translate('settings.appearance.chat.preview', 'Preview')}
       </div>

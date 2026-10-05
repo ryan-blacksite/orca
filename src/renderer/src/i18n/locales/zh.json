@@ -11,6 +11,9 @@
     "retrying": "正在重试..."
   },
   "settings": {
+    "chat": {
+      "description": "聊天外观。"
+    },
     "terminal": {
       "optionLayoutAlt": "ABC 或 U.S. — Option 键发送 Alt/Esc 序列",
       "optionLayoutCompose": "此布局使用 Option 键输入 @、€、[、] 等字符",

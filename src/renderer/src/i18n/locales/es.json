@@ -11,6 +11,9 @@
     "retrying": "Reintentando…"
   },
   "settings": {
+    "chat": {
+      "description": "Apariencia del chat."
+    },
     "terminal": {
       "optionLayoutAlt": "ABC o EE. UU. — Option envía secuencias Alt/Esc",
       "optionLayoutCompose": "la distribución usa Option para escribir caracteres como @, €, [, ]",

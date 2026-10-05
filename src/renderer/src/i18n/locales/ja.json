@@ -11,6 +11,9 @@
     "retrying": "再試行中…"
   },
   "settings": {
+    "chat": {
+      "description": "チャットの外観。"
+    },
     "terminal": {
       "optionLayoutAlt": "ABCまたはU.S. — OptionはAlt/Escシーケンスを送信します",
       "optionLayoutCompose": "この配列ではOptionで@、€、[、]などの文字を入力します",

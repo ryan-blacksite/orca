@@ -15,7 +15,7 @@ export const getChatContrastEntriesByKey = createLocalizedCatalog(
           'settings.appearance.chat.matchTerminalInterfaceDescription',
           "Use your terminal interface's font and colors for the whole chat. Stays in sync if you change your terminal theme later."
         ),
-        targetSectionId: 'chat'
+        targetSectionId: 'chat-match-terminal-interface'
       },
       contrast: {
         title: translate('settings.appearance.chat.contrast', 'Contrast'),
@@ -23,7 +23,7 @@ export const getChatContrastEntriesByKey = createLocalizedCatalog(
           'settings.appearance.chat.contrastDescription',
           'How bright chat text is against the background. The right end matches the older, brighter look.'
         ),
-        targetSectionId: 'chat'
+        targetSectionId: 'chat-contrast'
       }
     }) satisfies Record<string, SettingsSearchEntry>
 )
@@ -36,10 +36,12 @@ const getChatAppearanceCatalog = createLocalizedCatalog(
   () =>
     ({
       textSize: {
+        targetSectionId: 'chat-text-size',
         title: translate('settings.appearance.chat.textSize', 'Text size'),
         keywords: [translate('settings.appearance.chat.title', 'Chat')]
       },
       codeTextSize: {
+        targetSectionId: 'chat-code-text-size',
         title: translate('settings.appearance.chat.codeTextSize', 'Code text size'),
         description: translate(
           'settings.appearance.chat.codeTextSizeDescription',
@@ -48,6 +50,7 @@ const getChatAppearanceCatalog = createLocalizedCatalog(
         keywords: [translate('settings.appearance.chat.title', 'Chat')]
       },
       width: {
+        targetSectionId: 'chat-width',
         title: translate('settings.appearance.chat.width', 'Width'),
         description: translate(
           'settings.appearance.chat.widthDescription',
@@ -59,6 +62,7 @@ const getChatAppearanceCatalog = createLocalizedCatalog(
         ]
       },
       reset: {
+        targetSectionId: 'chat-reset',
         title: translate('settings.appearance.chat.resetAppearance', 'Reset chat appearance'),
         description: translate(
           'settings.appearance.chat.resetDescription',
@@ -87,7 +91,18 @@ export function getChatAppearanceEntriesByKey(shortcuts?: { increase: string; de
 }
 
 export function getChatAppearanceSearchEntries(): SettingsSearchEntry[] {
-  return [...Object.values(getChatAppearanceEntriesByKey()), ...getChatContrastSearchEntries()]
+  return [
+    {
+      title: translate('auto.components.settings.Settings.2b4474780a', 'Appearance'),
+      targetSectionId: 'chat-appearance'
+    },
+    {
+      title: translate('settings.appearance.chat.preview', 'Preview'),
+      targetSectionId: 'chat-preview'
+    },
+    ...getChatContrastSearchEntries(),
+    ...Object.values(getChatAppearanceEntriesByKey())
+  ]
 }
 
 export function getChatWidthOptions() {
