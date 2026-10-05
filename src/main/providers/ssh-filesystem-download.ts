@@ -100,10 +100,12 @@ async function downloadDirectoryTree(
     localName: string
   }[] = []
   let retainedBytes = budget.record([sourceDir, destinationDir], depth)
+  let retainedEntries = 1
   try {
     for await (const entry of readDirectoryEntriesViaSftp(sftp, sourceDir, { signal })) {
       const localName = sanitizeLocalDownloadFilename(entry.filename)
       retainedBytes += budget.record([sourceDir, destinationDir, entry.filename, localName], depth)
+      retainedEntries++
       if (usedLocalNames.has(localName)) {
         throw new Error(`Remote entries map to the same local name '${localName}'`)
       }
@@ -141,7 +143,7 @@ async function downloadDirectoryTree(
     }
     signal?.throwIfAborted()
   } finally {
-    budget.release(retainedBytes, usedLocalNames.size + 1)
+    budget.release(retainedBytes, retainedEntries)
   }
 }
 

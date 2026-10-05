@@ -1,3 +1,4 @@
+import { DirectoryTransferBudget } from '../ssh/ssh-directory-transfer-budget'
 import { withSftpDirectoryHandles } from './sftp-directory-test-fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -114,6 +115,8 @@ describe('downloadFolderViaSftp', () => {
 
   it('sanitizes extended Windows device names in nested entries', async () => {
     const destination = await createDestination()
+    const records = vi.spyOn(DirectoryTransferBudget.prototype, 'record')
+    const releases = vi.spyOn(DirectoryTransferBudget.prototype, 'release')
     const sftp = {
       stat: vi.fn((_path: string, callback: (err: Error | undefined, value: unknown) => void) =>
         callback(undefined, sftpStats('directory'))
@@ -129,6 +132,13 @@ describe('downloadFolderViaSftp', () => {
       downloadFolderViaSftp(async () => withSftpDirectoryHandles(sftp), '/remote/src', destination)
     ).rejects.toThrow("Remote entries map to the same local name 'download'")
     expect(sftp.fastGet).not.toHaveBeenCalled()
+    expect(records).toHaveBeenCalledTimes(3)
+    expect(releases).toHaveBeenCalledWith(
+      records.mock.results.reduce((bytes, record) => bytes + record.value, 0),
+      3
+    )
+    records.mockRestore()
+    releases.mockRestore()
   })
 
   it('preserves legal POSIX backslashes in opaque SFTP child names', async () => {
