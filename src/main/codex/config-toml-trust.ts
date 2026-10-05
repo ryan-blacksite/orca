@@ -14,7 +14,9 @@ import {
 import { writeTomlConfigAtomically } from './config-toml-atomic-write'
 import {
   moveHookTrustContent,
+  readHookTrustBlockTexts,
   removeHookTrustContent,
+  restoreHookTrustBlockContent,
   upsertHookTrustContent
 } from './config-toml-hook-trust-edit'
 import { CodexHookTrustEntryMap, readHookTrustContent } from './config-toml-hook-trust-read'
@@ -160,6 +162,30 @@ export function assertLoadableHookTrustConfig(
     throw new CodexConfigTomlRefusedError(
       `${configPath} defines hook approvals in a form Orca cannot add to without breaking it`
     )
+  }
+}
+
+/** Each key's trust tables as written, to restore verbatim later; see restoreHookTrustBlocks. */
+export function readHookTrustBlocks(
+  configPath: string,
+  keys: readonly string[]
+): Map<string, string[]> {
+  const content = existsSync(configPath) ? readTomlFile(configPath) : ''
+  return new Map(keys.map((key) => [key, readHookTrustBlockTexts(content, key)]))
+}
+
+/** Puts each key's trust tables back as read by readHookTrustBlocks; no tables removes the key. */
+export function restoreHookTrustBlocks(
+  configPath: string,
+  restores: readonly { key: string; blocks: readonly string[] }[]
+): void {
+  if (restores.length === 0 || !existsSync(configPath)) {
+    return
+  }
+  const existing = readTomlFile(configPath)
+  const updated = restoreHookTrustBlockContent(existing, restores)
+  if (updated !== existing) {
+    writeLoadableHookTrustConfig(configPath, existing, updated)
   }
 }
 

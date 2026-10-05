@@ -98,6 +98,31 @@ export function moveHookTrustContent(
   return `${updated}${separator}${blocks.join('\n\n')}\n`
 }
 
+/** Each key's trust tables as they are written, header included. */
+export function readHookTrustBlockTexts(content: string, key: string): string[] {
+  return findHookTrustBlockRanges(content, new Set([normalizeCodexHookTrustLookupKey(key)])).map(
+    (range) => content.slice(range.start, range.end).trimEnd()
+  )
+}
+
+/** Replaces each key's trust tables with the given texts, verbatim; no texts removes the key. */
+export function restoreHookTrustBlockContent(
+  content: string,
+  restores: readonly { key: string; blocks: readonly string[] }[]
+): string {
+  const updated = removeHookTrustContent(
+    content,
+    restores.map(({ key }) => key)
+  )
+  const blocks = restores.flatMap(({ blocks: texts }) => texts)
+  if (blocks.length === 0) {
+    return updated
+  }
+  const separator =
+    updated.length === 0 || updated.endsWith('\n\n') ? '' : updated.endsWith('\n') ? '\n' : '\n\n'
+  return `${updated}${separator}${blocks.join('\n\n')}\n`
+}
+
 function upsertTrustBlocks(
   content: string,
   keys: readonly string[],
