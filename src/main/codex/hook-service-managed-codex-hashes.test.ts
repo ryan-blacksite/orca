@@ -44,6 +44,7 @@ import {
   type CodexEventLabel
 } from './config-toml-trust'
 import { getManagedCommand, getManagedScriptPath } from './codex-hook-definition'
+import { CODEX_DAEMON_OVERRIDE_MARKER } from './codex-daemon-socket-path-guard'
 
 // Why this file: a managed CODEX_HOME's approval for Orca's entry is Codex's
 // own hash, not one Orca computes, and is written before the entry.
@@ -425,6 +426,17 @@ describe('managed-home Codex hook approval', () => {
 
     expect(readFileSync(join(managedHome(), 'config.toml'), 'utf-8')).toContain(
       'model = "user-model"'
+    )
+  })
+
+  it('applies the daemon socket guard to a long managed home on its first install', async () => {
+    const longHome = join(homes.userDataDir, 'codex-accounts', 'a'.repeat(100), 'home')
+    useCodexHashes()
+
+    expect((await new CodexHookService().install(longHome)).state).toBe('installed')
+
+    expect(readFileSync(join(longHome, 'config.toml'), 'utf-8')).toContain(
+      CODEX_DAEMON_OVERRIDE_MARKER
     )
   })
 
