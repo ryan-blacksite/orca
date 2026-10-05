@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   normalizeNativeChatAppearanceSettings,
   resetNativeChatAppearanceSettings,
@@ -28,6 +29,24 @@ export function AppearanceChatSection({
   forceVisiblePrimary = false
 }: AppearanceChatSectionProps): React.JSX.Element {
   const appearance = resolveNativeChatAppearanceSettings(settings.nativeChatAppearance)
+  const [contrastDraft, setContrastDraft] = useState({
+    savedContrast: appearance.contrast,
+    value: appearance.contrast
+  })
+  // Reconcile external changes without remounting the focused slider thumb.
+  if (contrastDraft.savedContrast !== appearance.contrast) {
+    setContrastDraft({ savedContrast: appearance.contrast, value: appearance.contrast })
+  }
+  const previewSettings =
+    contrastDraft.value === appearance.contrast
+      ? settings
+      : {
+          ...settings,
+          nativeChatAppearance: {
+            ...settings.nativeChatAppearance,
+            contrast: contrastDraft.value
+          }
+        }
   const keybindings = useAppStore((state) => state.keybindings)
   const increase = formatPrimaryShortcutLabel('zoom.in', keybindings)
   const decrease = formatPrimaryShortcutLabel('zoom.out', keybindings)
@@ -40,9 +59,13 @@ export function AppearanceChatSection({
   }
   return (
     <div className="divide-y divide-border/40">
-      <NativeChatAppearancePreview settings={settings} />
+      <NativeChatAppearancePreview settings={previewSettings} />
       <AppearanceChatContrastControls
         appearance={appearance}
+        contrastDraft={contrastDraft.value}
+        onContrastDraftChange={(value) =>
+          setContrastDraft({ savedContrast: appearance.contrast, value })
+        }
         onChange={update}
         forceVisiblePrimary={forceVisiblePrimary}
       />
@@ -94,9 +117,10 @@ export function AppearanceChatSection({
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
+              onClick={() => {
+                setContrastDraft({ savedContrast: appearance.contrast, value: appearance.contrast })
                 void writeNativeChatAppearance(resetNativeChatAppearanceSettings, updateSettings)
-              }
+              }}
             >
               {translate('settings.appearance.chat.reset', 'Reset')}
             </Button>
