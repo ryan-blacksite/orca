@@ -1,6 +1,11 @@
 import { RipgrepLaunchFailureError } from '../shared/ripgrep-process-availability'
 export async function runRelayFileListingPasses(
-  options: { includeIgnored?: boolean; searchQuery?: string; maxResults?: number },
+  options: {
+    includeIgnored?: boolean
+    searchQuery?: string
+    maxResults?: number
+    candidatePaths?: string[]
+  },
   primary: string[],
   ignoredPass: string[],
   runPass: (args: string[]) => Promise<void>,
@@ -9,8 +14,12 @@ export async function runRelayFileListingPasses(
   if (options.includeIgnored === false) {
     return runPass(primary)
   }
-  // An unbounded or ranked scan already gets every primary path from the broader pass.
-  if (options.searchQuery !== undefined || options.maxResults === undefined) {
+  // Unordered candidate checks and ranked scans need only the broader pass.
+  if (
+    options.candidatePaths !== undefined ||
+    options.searchQuery !== undefined ||
+    options.maxResults === undefined
+  ) {
     return runPass(ignoredPass)
   }
   await runPass(primary)

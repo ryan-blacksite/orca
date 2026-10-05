@@ -59,7 +59,12 @@ export async function searchQuickOpenFilePaths(
   )
   const wslDistroForOutput = parseWslPath(authorizedRootPath)?.distro ?? localGitOptions.wslDistro
 
-  const excludePathPrefixes = buildExcludePathPrefixes(authorizedRootPath, args.excludePaths)
+  const excludePathPrefixes = [
+    ...new Set([
+      ...buildExcludePathPrefixes(rootPath, args.excludePaths),
+      ...buildExcludePathPrefixes(authorizedRootPath, args.excludePaths)
+    ])
+  ]
   const { primary, ignoredPass } = buildRgArgsForQuickOpen({
     searchRoot: '.',
     followSymlinks: args.followSymlinks,

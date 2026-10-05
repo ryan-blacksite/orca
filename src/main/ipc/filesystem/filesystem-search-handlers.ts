@@ -27,6 +27,7 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
         excludePaths?: string[]
         requestToken?: string
         maxResults?: number
+        candidatePaths?: string[]
         searchQuery?: string
         includeIgnored?: boolean
         followSymlinks?: boolean
@@ -43,7 +44,9 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
             return []
           }
           if (
-            (args.includeIgnored === false || args.followSymlinks) &&
+            (args.includeIgnored === false ||
+              args.followSymlinks ||
+              args.candidatePaths !== undefined) &&
             !(await provider.supportsQuickOpenSearch?.({ signal: controller?.signal }))
           ) {
             throw new Error('Update the remote host to use Quick Open listing options.')
@@ -71,6 +74,7 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
             return ranker.result().paths
           }
           return await provider.listFiles(args.rootPath, {
+            candidatePaths: args.candidatePaths,
             excludePaths: args.excludePaths,
             ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
             ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
@@ -93,7 +97,7 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
           nameFilterTokens.length > 0
             ? (relativePath) => pathMatchesFileNameFilterTokens(relativePath, nameFilterTokens)
             : undefined,
-          { includeIgnored: args.includeIgnored, followSymlinks: args.followSymlinks }
+          args
         )
       } finally {
         listFilesCancellations.finish(event, args.requestToken, controller)

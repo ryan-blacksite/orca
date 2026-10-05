@@ -6,6 +6,7 @@ export function sshFilesystemListingParams(
 ): Record<string, unknown> {
   return {
     rootPath,
+    ...(options?.candidatePaths === undefined ? {} : { candidatePaths: options.candidatePaths }),
     ...(options?.excludePaths?.length ? { excludePaths: options.excludePaths } : {}),
     ...(options?.maxResults === undefined ? {} : { maxResults: options.maxResults }),
     ...(options?.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),

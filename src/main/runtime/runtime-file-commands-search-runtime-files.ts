@@ -45,6 +45,7 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
   async listRuntimeFiles(
     worktreeSelector: string,
     options: {
+      candidatePaths?: string[]
       includeIgnored?: boolean
       followSymlinks?: boolean
       excludePaths?: string[]
@@ -64,8 +65,15 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
       const maxResults =
         options.maxResults ??
         (options.maxContentBytes === undefined ? undefined : QUICK_OPEN_LISTING_MAX_RESULTS)
+      if (
+        options.candidatePaths !== undefined &&
+        !(await provider.supportsQuickOpenSearch?.({ signal: options.signal }))
+      ) {
+        throw new Error('Update the remote host to validate Quick Open recent files.')
+      }
       const files = await provider.listFiles(target.worktree.path, {
         excludePaths: options.excludePaths,
+        ...(options.candidatePaths === undefined ? {} : { candidatePaths: options.candidatePaths }),
         includeIgnored: options.includeIgnored,
         followSymlinks: options.followSymlinks,
         maxResults,

@@ -101,6 +101,10 @@ export const FileSearch = WorktreeSelector.extend({
 // means there is more" was true for desktop and merely incidental for web and mobile, which were
 // saved by `remoteFileContentBudget` defaulting the cap inside `listRuntimeFiles`.
 export const FileListAll = WorktreeSelector.extend({
+  candidatePaths: z
+    .array(z.string().max(64 * 1024))
+    .max(100)
+    .optional(),
   includeIgnored: z.boolean().optional(),
   followSymlinks: z.boolean().optional(),
   excludePaths: z.array(z.string()).optional(),

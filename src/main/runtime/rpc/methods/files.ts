@@ -168,6 +168,7 @@ export const FILE_METHODS = [
     handler: async (params, { runtime, clientKind, requestId, signal }) => {
       const maxContentBytes = remoteFileContentBudget(clientKind, requestId)
       return runtime.listRuntimeFiles(params.worktree, {
+        ...(params.candidatePaths === undefined ? {} : { candidatePaths: params.candidatePaths }),
         excludePaths: params.excludePaths,
         ...(params.includeIgnored === undefined ? {} : { includeIgnored: params.includeIgnored }),
         ...(params.followSymlinks === undefined ? {} : { followSymlinks: params.followSymlinks }),

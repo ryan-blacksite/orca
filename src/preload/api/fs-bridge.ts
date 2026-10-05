@@ -158,6 +158,7 @@ export const fsApi = {
     requestToken?: string
     maxResults?: number
     searchQuery?: string
+    candidatePaths?: string[]
     includeIgnored?: boolean
     followSymlinks?: boolean
     nameFilter?: string

@@ -84,10 +84,11 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
       ? quickOpenHistoryScope(useAppStore.getState(), activeWorktreeId, worktreePath)
       : null
   const history = useSyncExternalStore(subscribeQuickOpenHistory, () => readQuickOpenHistory(scope))
-  const { files, loading, loadError, truncated } = useRuntimeFileListForWorktree({
+  const { files, loading, loadError, truncated, recentError } = useRuntimeFileListForWorktree({
     enabled: visible && !absoluteQuery,
     worktreeId: activeWorktreeId,
-    query: parsedTarget.pathQuery
+    query: parsedTarget.pathQuery,
+    recentPaths: history
   })
 
   // Why: Radix's onCloseAutoFocus restore is suppressed below, so dismissing
@@ -204,6 +205,11 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
         className="!h-9 !py-2"
       />
       <CommandList className="p-2">
+        {recentError ? (
+          <div role="status" className="px-3 py-2 text-xs text-muted-foreground">
+            {recentError}
+          </div>
+        ) : null}
         {openError ? (
           <div role="alert" className="px-3 py-2 text-xs text-destructive">
             {openError}

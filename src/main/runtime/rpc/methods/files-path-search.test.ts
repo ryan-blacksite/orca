@@ -74,7 +74,7 @@ describe('file path search RPC method', () => {
       controller.signal,
       { includeIgnored: undefined, followSymlinks: undefined }
     )
-    expect(response).toMatchObject({ ok: true, result: { quickOpenSearchVersion: 2 } })
+    expect(response).toMatchObject({ ok: true, result: { quickOpenSearchVersion: 3 } })
   })
 
   it('keeps the complete paired Quick Open reply within its content budget', async () => {

@@ -14,7 +14,8 @@ import {
 } from './runtime-file-search-bounds'
 import {
   hasCachedLegacyQuickOpenInventory,
-  searchLegacyQuickOpenInventory
+  searchLegacyQuickOpenInventory,
+  validateLegacyQuickOpenRecentCandidates
 } from './runtime-legacy-quick-open-inventory'
 import { callRuntimeRpc, getActiveRuntimeTarget, RuntimeRpcCallError } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
@@ -65,6 +66,7 @@ export async function listRuntimeFiles(
   context: RuntimeFileOperationArgs,
   args: {
     rootPath: string
+    candidatePaths?: string[]
     includeIgnored?: boolean
     followSymlinks?: boolean
     excludePaths?: string[]
@@ -84,6 +86,7 @@ export async function listRuntimeFiles(
       ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
       ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
       rootPath: args.rootPath,
+      ...(args.candidatePaths === undefined ? {} : { candidatePaths: args.candidatePaths }),
       connectionId: context.connectionId,
       excludePaths: args.excludePaths,
       requestToken: args.requestToken,
@@ -91,7 +94,7 @@ export async function listRuntimeFiles(
       ...(args.nameFilter && !context.connectionId ? { nameFilter: args.nameFilter } : {})
     })
   }
-  if (args.includeIgnored === false || args.followSymlinks) {
+  if (args.includeIgnored === false || args.followSymlinks || args.candidatePaths !== undefined) {
     const capability = await callRuntimeRpc<RuntimeFileListResult>(
       target,
       'files.searchPaths',
@@ -102,13 +105,32 @@ export async function listRuntimeFiles(
         mode: 'quick-open'
       },
       { timeoutMs: 5_000, signal: args.signal }
-    )
+    ).catch((error: unknown) => {
+      if (error instanceof RuntimeRpcCallError && error.code === 'method_not_found') {
+        return null
+      }
+      throw error
+    })
     if (
       !(
-        typeof capability.quickOpenSearchVersion === 'number' &&
+        typeof capability?.quickOpenSearchVersion === 'number' &&
         capability.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
       )
     ) {
+      if (
+        args.candidatePaths !== undefined &&
+        args.includeIgnored !== false &&
+        !args.followSymlinks
+      ) {
+        return validateLegacyQuickOpenRecentCandidates({
+          target,
+          worktreeSelector: toRuntimeWorktreeSelector(context.worktreeId),
+          worktreePath: context.worktreePath,
+          excludePaths: args.excludePaths,
+          candidatePaths: args.candidatePaths,
+          signal: args.signal
+        })
+      }
       throw new Error('Update the remote host to use Quick Open listing options.')
     }
   }
@@ -117,6 +139,7 @@ export async function listRuntimeFiles(
     'files.listAll',
     {
       worktree: toRuntimeWorktreeSelector(context.worktreeId),
+      ...(args.candidatePaths === undefined ? {} : { candidatePaths: args.candidatePaths }),
       ...(args.includeIgnored === undefined ? {} : { includeIgnored: args.includeIgnored }),
       ...(args.followSymlinks === undefined ? {} : { followSymlinks: args.followSymlinks }),
       excludePaths: args.excludePaths,

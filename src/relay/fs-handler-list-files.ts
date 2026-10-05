@@ -1,3 +1,4 @@
+import { quickOpenListingPathFilter } from '../shared/quick-open-listing-path-filter'
 import { retainRelayFileListingPath } from './fs-file-listing-paths'
 import { FileInventoryBudget } from '../shared/file-inventory-budget'
 import { runRelayFileListingPasses, retryRelayFileListingPass } from './fs-list-files-passes'
@@ -46,12 +47,14 @@ export function listFilesWithRg(
   options: {
     signal?: AbortSignal
     maxResults?: number
+    candidatePaths?: string[]
     searchQuery?: string
     includeIgnored?: boolean
     followSymlinks?: boolean
   } = {}
 ): Promise<string[]> {
   const { signal, maxResults, searchQuery } = options
+  const includePath = quickOpenListingPathFilter(excludePathPrefixes, options.candidatePaths)
   if (signal?.aborted) {
     return Promise.reject(fileListingCancellationError(signal))
   }
@@ -59,6 +62,7 @@ export function listFilesWithRg(
     const inventoryBudget =
       maxResults === undefined && searchQuery === undefined ? new FileInventoryBudget() : null
     const files = new Set<string>()
+    const retention = { files, budget: inventoryBudget, includePath }
     let rankedPaths: string[] | null = null
     let done = false
     const children: {
@@ -79,13 +83,7 @@ export function listFilesWithRg(
 
     const processLine = (rawLine: string, attemptRanker: QuickOpenPathRanker | null): boolean => {
       try {
-        const included = retainRelayFileListingPath(
-          rawLine,
-          excludePathPrefixes,
-          attemptRanker,
-          files,
-          inventoryBudget
-        )
+        const included = retainRelayFileListingPath(rawLine, attemptRanker, retention)
         if (maxResults !== undefined && files.size >= maxResults) {
           finishAtLimit()
         }

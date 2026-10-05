@@ -1,8 +1,19 @@
+import { getRuntimeFileListTarget } from './quick-open-file-list-target'
+export {
+  getRuntimeFileListTarget,
+  getNestedWorktreeExcludeRequest
+} from './quick-open-file-list-target'
+export type {
+  NestedWorktreeExcludeRequest,
+  RuntimeFileListTarget
+} from './quick-open-file-list-target'
+import {
+  mergeQuickOpenRecentCandidates,
+  type QuickOpenRecentCache
+} from './quick-open-recent-validation'
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: quick-open file lists are fetched over local or SSH runtime IPC, so loading/error/results track the request lifecycle. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import type { Worktree } from '../../../shared/worktree/types'
-import { getNestedWorktreeExcludePaths } from './quick-open-nested-worktrees'
 export { isNestedWorktreePath, getNestedWorktreeExcludePaths } from './quick-open-nested-worktrees'
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import { isQuickOpenRemoteQueryTooLarge } from '@/components/quick-open-search'
@@ -31,6 +42,7 @@ export type RuntimeFileListState = {
   files: string[]
   loading: boolean
   loadError: string | null
+  recentError?: string | null
   truncated?: boolean
   operationOwner?: FileExplorerOperationOwner
 }
@@ -40,6 +52,7 @@ type RuntimeFileListing = {
   requestKey: string
   files: string[]
   truncated: boolean
+  recentError?: string | null
 }
 
 const NO_LISTING: RuntimeFileListing = { requestKey: '', files: [], truncated: false }
@@ -49,60 +62,17 @@ export function cleanRuntimeFileListError(error: unknown): string {
   return raw.replace(/^Error invoking remote method '[^']+':\s*Error:\s*/, '')
 }
 
-export type NestedWorktreeExcludeRequest = {
-  paths: string[]
-  key: string
-}
-
-export type RuntimeFileListTarget = {
-  canList: boolean
-  excludeRequest: NestedWorktreeExcludeRequest
-  worktreePath: string | null
-}
-
-export function getRuntimeFileListTarget(
-  worktreeId: string | null,
-  worktreePath: string | null | undefined,
-  repoWorktrees: readonly Worktree[]
-): RuntimeFileListTarget {
-  const resolvedWorktreePath = worktreePath ?? null
-  if (!worktreeId || !resolvedWorktreePath) {
-    return { canList: false, excludeRequest: { paths: [], key: '[]' }, worktreePath: null }
-  }
-  return {
-    canList: true,
-    excludeRequest: getNestedWorktreeExcludeRequest(
-      worktreeId,
-      resolvedWorktreePath,
-      repoWorktrees
-    ),
-    worktreePath: resolvedWorktreePath
-  }
-}
-
-export function getNestedWorktreeExcludeRequest(
-  worktreeId: string | null,
-  worktreePath: string | null,
-  repoWorktrees: readonly Worktree[]
-): NestedWorktreeExcludeRequest {
-  if (!worktreeId || !worktreePath || repoWorktrees.length === 0) {
-    return { paths: [], key: '[]' }
-  }
-  const paths = getNestedWorktreeExcludePaths(worktreeId, worktreePath, repoWorktrees)
-  // Why: worktree paths can contain newlines. Use JSON as a stable dependency
-  // key while passing the original array to IPC so paths stay lossless.
-  return { paths, key: JSON.stringify(paths) }
-}
-
 export function useRuntimeFileListForWorktree({
   enabled,
   worktreeId,
   query,
-  hostFilterWhenCapped = false
+  hostFilterWhenCapped = false,
+  recentPaths
 }: {
   enabled: boolean
   worktreeId: string | null
   query?: string
+  recentPaths?: readonly string[]
   /** When a local listing hits its cap, re-list with `query` applied as the Explorer name filter on the host. */
   hostFilterWhenCapped?: boolean
 }): RuntimeFileListState {
@@ -161,6 +131,8 @@ export function useRuntimeFileListForWorktree({
   const remoteQueryTooLarge = usesRuntimePathSearch && isQuickOpenRemoteQueryTooLarge(remoteQuery)
   const includeIgnored = useAppStore((state) => state.settings?.showGitIgnoredFiles ?? true)
   const followSymlinks = useAppStore((state) => state.settings?.followSymlinkedDirectories ?? false)
+  const recentKey = JSON.stringify(recentPaths ?? [])
+  const eligibleRecentCache = useRef<QuickOpenRecentCache['current']>(null)
   const listingKey = `${worktreePath ?? ''}\n${operationOwnerKey}\n${excludeRequest.key}\n${includeIgnored}\n${followSymlinks}\n${activeTargetStatus ?? ''}`
   // Why: a capped listing can omit matches, so only then pay for a host scan per query.
   const hostNameFilter =
@@ -171,7 +143,8 @@ export function useRuntimeFileListForWorktree({
     !cappedLocalListing.hostFilterFailed
       ? splitFileNameFilterTokens(query ?? '').join(' ')
       : ''
-  const requestKey = `${listingKey}${usesRuntimePathSearch ? `\n${remoteQuery}` : ''}${hostNameFilter ? `\nname-filter\n${hostNameFilter}` : ''}`
+  const eligibilityKey = `${listingKey}\n${recentKey}`
+  const requestKey = `${listingKey}\n${recentKey}${usesRuntimePathSearch ? `\n${remoteQuery}` : ''}${hostNameFilter ? `\nname-filter\n${hostNameFilter}` : ''}`
   // Why: the render between a request change and the effect that starts the next request must
   // not show the previous listing, so a listing is only visible for the request that produced it.
   const currentListing = listing.requestKey === requestKey ? listing : NO_LISTING
@@ -186,6 +159,7 @@ export function useRuntimeFileListForWorktree({
 
   useEffect(() => {
     if (!enabled) {
+      eligibleRecentCache.current = null
       setCappedLocalListing(null)
       setLoadingRequest({ requestKey, loading: false })
       setListedOperationOwner({ kind: 'unresolved' })
@@ -260,7 +234,28 @@ export function useRuntimeFileListForWorktree({
           : listFiles()
 
     void request
+      .then((result) =>
+        mergeQuickOpenRecentCandidates({
+          result,
+          candidatePaths: JSON.parse(recentKey),
+          cache: eligibleRecentCache,
+          key: eligibilityKey,
+          context: requestContext,
+          options: {
+            rootPath: worktreePath,
+            includeIgnored,
+            followSymlinks,
+            excludePaths,
+            requestToken,
+            signal: requestAbortController.signal
+          },
+          cancelled: () => cancelled
+        })
+      )
       .then((result) => {
+        if (!result) {
+          return
+        }
         if (!cancelled) {
           setListing({ requestKey, ...result })
           setListedOperationOwner(requestOperationOwner)
@@ -297,6 +292,8 @@ export function useRuntimeFileListForWorktree({
     }
   }, [
     enabled,
+    recentKey,
+    eligibilityKey,
     includeIgnored,
     followSymlinks,
     excludeRequest,
@@ -320,6 +317,7 @@ export function useRuntimeFileListForWorktree({
     loading: loading || connectionPending,
     loadError,
     truncated: currentListing.truncated,
+    recentError: currentListing.recentError,
     operationOwner: listedOperationOwner
   }
 }

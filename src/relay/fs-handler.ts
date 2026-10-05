@@ -1,5 +1,6 @@
 import { readRelayDirectoryBounded } from './fs-directory-listing'
 import { listRelayMarkdownDocuments } from './fs-markdown-document-listing'
+import { quickOpenRecentCandidateSet } from '../shared/quick-open-recent-candidates'
 import { QUICK_OPEN_SEARCH_VERSION } from '../shared/quick-open-path-search'
 import { pathsExistOnRelay } from './fs-path-existence'
 import { tmpdir } from 'node:os'
@@ -221,7 +222,18 @@ export class FsHandler {
       DEFAULT_MAX_RESULTS
     )
 
+    const candidatePaths = params.candidatePaths
+    if (
+      candidatePaths !== undefined &&
+      (!Array.isArray(candidatePaths) ||
+        !candidatePaths.every((path): path is string => typeof path === 'string'))
+    ) {
+      throw new Error('Invalid Quick Open recent candidates.')
+    }
     const options = {
+      ...(candidatePaths === undefined
+        ? {}
+        : { candidatePaths: [...quickOpenRecentCandidateSet(candidatePaths)] }),
       caseSensitive,
       wholeWord,
       useRegex,

@@ -137,7 +137,7 @@ describe('runtime file client', () => {
         ],
         totalCount: 40,
         truncated: true,
-        quickOpenSearchVersion: 2
+        quickOpenSearchVersion: 3
       },
       _meta: { runtimeId: 'remote-runtime' }
     })
@@ -657,7 +657,7 @@ it('forwards both listing options only to the selected current host', async () =
     ok: true,
     result: {
       files: [{ relativePath: 'linked/.env' }],
-      quickOpenSearchVersion: 2,
+      quickOpenSearchVersion: 3,
       truncated: false
     },
     _meta: { runtimeId: 'remote-runtime' }

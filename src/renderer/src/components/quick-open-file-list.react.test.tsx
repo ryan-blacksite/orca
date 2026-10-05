@@ -99,14 +99,16 @@ function HookProbe({
   enabled,
   onState,
   query,
-  worktreeId
+  worktreeId,
+  recentPaths
 }: {
   enabled: boolean
   onState: (state: RuntimeFileListState) => void
   query?: string
+  recentPaths?: readonly string[]
   worktreeId: string | null
 }): null {
-  onState(useRuntimeFileListForWorktree({ enabled, worktreeId, query }))
+  onState(useRuntimeFileListForWorktree({ enabled, worktreeId, query, recentPaths }))
   return null
 }
 
@@ -131,6 +133,7 @@ async function renderProbe(args: {
   enabled: boolean
   onState: (state: RuntimeFileListState) => void
   query?: string
+  recentPaths?: readonly string[]
   worktreeId: string | null
 }): Promise<Root> {
   const container = document.createElement('div')
@@ -728,4 +731,93 @@ describe('useRuntimeFileListForWorktree', () => {
       loading: false
     })
   })
+})
+
+it('merges host-eligible history beyond remote top32 once per palette lifetime', async () => {
+  seedRemoteWorktree()
+  const states: RuntimeFileListState[] = []
+  searchRuntimeFilePathsMock.mockResolvedValue({
+    files: Array.from({ length: 32 }, (_, i) => `src/file${i}.ts`),
+    truncated: true
+  })
+  listRuntimeFilesMock.mockResolvedValue(['src/file99.ts'])
+  const args = {
+    enabled: true,
+    worktreeId: 'wt-remote',
+    query: 'file',
+    recentPaths: ['src/file99.ts', 'src/deleted.ts'],
+    onState: (state: RuntimeFileListState) => states.push(state)
+  }
+  const root = await renderProbe(args)
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  })
+  expect(states.at(-1)?.files).toContain('src/file99.ts')
+  expect(states.at(-1)?.files).not.toContain('src/deleted.ts')
+  expect(listRuntimeFilesMock).toHaveBeenCalledOnce()
+  expect(listRuntimeFilesMock.mock.calls[0][1]).toMatchObject({
+    candidatePaths: args.recentPaths,
+    maxResults: 2
+  })
+  await act(async () => {
+    root.render(createElement(HookProbe, { ...args, query: 'file9' }))
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  })
+  expect(listRuntimeFilesMock).toHaveBeenCalledOnce()
+  await act(async () => {
+    root.render(createElement(HookProbe, { ...args, enabled: false }))
+  })
+  await act(async () => {
+    root.render(createElement(HookProbe, args))
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  })
+  expect(listRuntimeFilesMock).toHaveBeenCalledTimes(2)
+})
+
+it('keeps ordinary remote search available when recent eligibility is unsupported', async () => {
+  seedRemoteWorktree()
+  const states: RuntimeFileListState[] = []
+  searchRuntimeFilePathsMock.mockResolvedValue({ files: ['src/file0.ts'], truncated: true })
+  listRuntimeFilesMock.mockRejectedValue(new Error('Update the remote host'))
+  await renderProbe({
+    enabled: true,
+    worktreeId: 'wt-remote',
+    query: 'file',
+    recentPaths: ['src/file99.ts'],
+    onState: (state) => states.push(state)
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  })
+  expect(states.at(-1)?.files).toEqual(['src/file0.ts'])
+  expect(states.at(-1)?.loadError).toBeNull()
+  expect(states.at(-1)?.recentError).toContain('Update the remote host')
+})
+
+it('merges an eligible recent beyond the local empty-query inventory cap', async () => {
+  const workspace = makeFolderWorkspace()
+  useAppStore.setState({ folderWorkspaces: [workspace], projectGroups: [makeProjectGroup()] })
+  const states: RuntimeFileListState[] = []
+  listRuntimeFilesMock.mockImplementation((_context, args) =>
+    Promise.resolve(
+      args.candidatePaths
+        ? ['late.ts']
+        : Array.from({ length: QUICK_OPEN_LISTING_MAX_RESULTS }, (_, i) => `file${i}.ts`)
+    )
+  )
+  await renderProbe({
+    enabled: true,
+    worktreeId: folderWorkspaceKey(workspace.id),
+    query: '',
+    recentPaths: ['late.ts'],
+    onState: (state) => states.push(state)
+  })
+  await flushEffects()
+  expect(states.at(-1)?.files).toContain('late.ts')
+  expect(states.at(-1)?.truncated).toBe(true)
+  expect(listRuntimeFilesMock).toHaveBeenCalledTimes(2)
 })

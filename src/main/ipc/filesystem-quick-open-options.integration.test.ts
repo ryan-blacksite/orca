@@ -91,3 +91,98 @@ it('honors inherited ignores, opt-in links, cycles, retargets and relay parity i
   expect(reopened).toContain('linked/api/.env')
   expect(reopened).not.toContain('linked/fresh.md')
 }, 30_000)
+
+it('validates recent membership independently of top32, ignores, exclusions and a real inventory cap', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-quick-open-recents-'))
+  fixtures.push(root)
+  await mkdir(join(root, '.git'))
+  await mkdir(join(root, 'src'))
+  await mkdir(join(root, 'excluded'))
+  await mkdir(join(root, 'node_modules'))
+  await writeFile(join(root, '.gitignore'), 'ignored.ts\n')
+  await writeFile(join(root, '.ignore'), 'always-ignored.ts\n')
+  await Promise.all(
+    [
+      'ignored.ts',
+      'always-ignored.ts',
+      'excluded/other.ts',
+      'node_modules/blocked.ts',
+      ...Array.from({ length: 60 }, (_, i) => `src/file${String(i).padStart(3, '0')}.ts`)
+    ].map((path) => writeFile(join(root, path), 'fixture'))
+  )
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the listing reads only these store methods.
+  const store = {
+    getRepos: () => [{ id: 'fixture', path: root }],
+    getSettings: () => ({}),
+    getFolderWorkspaces: () => []
+  } as unknown as Store
+  const top = await listFilesWithRg(root, [], {
+    searchQuery: 'file',
+    maxResults: 32,
+    includeIgnored: false
+  })
+  expect(top).toHaveLength(32)
+  expect(top).not.toContain('src/file059.ts')
+  const candidates = [
+    'src/file059.ts',
+    'deleted.ts',
+    'ignored.ts',
+    'always-ignored.ts',
+    'excluded/other.ts',
+    'node_modules/blocked.ts'
+  ]
+  const options = { includeIgnored: false, candidatePaths: candidates }
+  const local = await listQuickOpenFiles(
+    root,
+    store,
+    [join(root, 'excluded')],
+    undefined,
+    candidates.length,
+    undefined,
+    undefined,
+    options
+  )
+  const relay = await listFilesWithRg(root, ['excluded'], {
+    ...options,
+    maxResults: candidates.length
+  })
+  expect(local).toEqual(['src/file059.ts'])
+  expect(relay).toEqual(local)
+  const broad = await listFilesWithRg(root, ['excluded'], {
+    ...options,
+    includeIgnored: true,
+    maxResults: candidates.length
+  })
+  expect(broad.sort()).toEqual(['ignored.ts', 'src/file059.ts'])
+  await mkdir(join(root, 'large'))
+  for (let start = 0; start < 20_020; start += 100) {
+    await Promise.all(
+      Array.from({ length: Math.min(100, 20_020 - start) }, (_, offset) =>
+        writeFile(join(root, 'large', `entry${start + offset}.ts`), 'x')
+      )
+    )
+  }
+  const capped = await listQuickOpenFiles(root, store, undefined, undefined, 20_001)
+  expect(capped).toHaveLength(20_001)
+  const available = new Set(capped)
+  const missing = Array.from({ length: 20_020 }, (_, i) => `large/entry${i}.ts`).find(
+    (path) => !available.has(path)
+  )
+  expect(missing).toBeDefined()
+  if (!missing) {
+    throw new Error('fixture must exceed the cap')
+  }
+  expect(
+    await listQuickOpenFiles(root, store, undefined, undefined, 1, undefined, undefined, {
+      candidatePaths: [missing],
+      includeIgnored: false
+    })
+  ).toEqual([missing])
+  expect(
+    await listFilesWithRg(root, [], {
+      candidatePaths: [missing],
+      includeIgnored: false,
+      maxResults: 1
+    })
+  ).toEqual([missing])
+}, 60_000)

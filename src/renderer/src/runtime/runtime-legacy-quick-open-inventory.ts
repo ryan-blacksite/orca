@@ -1,4 +1,5 @@
 import { decodeLegacyQuickOpenInventory, pruneLegacyInventoryCache } from './runtime-legacy-inventory-budget'
+import { quickOpenRecentCandidateSet } from '../../../shared/quick-open-recent-candidates'
 import type { RuntimeFileListResult } from '../../../shared/runtime-types'
 import {
   buildExcludePathPrefixes,
@@ -233,4 +234,32 @@ export async function searchLegacyQuickOpenInventory(args: {
     files: matches.paths,
     truncated: result.truncated || matches.totalCount > args.limit
   }
+}
+
+export async function validateLegacyQuickOpenRecentCandidates(args: {
+  target: EnvironmentTarget
+  worktreeSelector: string
+  worktreePath: string | null | undefined
+  excludePaths: string[] | undefined
+  candidatePaths: string[]
+  signal?: AbortSignal
+}): Promise<string[]> {
+  const result = await loadLegacyQuickOpenInventory(
+    args.target,
+    args.worktreeSelector,
+    args.worktreePath,
+    args.signal
+  )
+  if (result.truncated) {
+    throw new Error('Update the remote host to check recent files beyond its inventory limit.')
+  }
+  const candidates = quickOpenRecentCandidateSet(args.candidatePaths)
+  const excluded = buildExcludePathPrefixes(args.worktreePath ?? result.rootPath, args.excludePaths)
+  return result.files
+    .filter(
+      (entry) =>
+        candidates.has(entry.relativePath) &&
+        !shouldExcludeQuickOpenRelPath(entry.relativePath, excluded)
+    )
+    .map((entry) => entry.relativePath)
 }

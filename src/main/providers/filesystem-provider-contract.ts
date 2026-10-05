@@ -106,6 +106,7 @@ export type IFilesystemProvider = {
       signal?: AbortSignal
       maxResults?: number
       searchQuery?: string
+      candidatePaths?: string[]
       includeIgnored?: boolean
       followSymlinks?: boolean
     }
