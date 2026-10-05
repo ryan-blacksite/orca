@@ -59,7 +59,9 @@ export function AppearanceChatSection({
   }
   return (
     <div className="divide-y divide-border/40">
-      <NativeChatAppearancePreview settings={previewSettings} />
+      <div id="chat-preview">
+        <NativeChatAppearancePreview settings={previewSettings} />
+      </div>
       <AppearanceChatContrastControls
         appearance={appearance}
         contrastDraft={contrastDraft.value}

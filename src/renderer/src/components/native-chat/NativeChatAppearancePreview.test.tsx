@@ -77,6 +77,7 @@ describe('NativeChatAppearancePreview', () => {
           settings={{ ...getDefaultSettings('/tmp'), nativeChatAppearance: { fontSize } }}
         />
       )
+      expect(container.querySelector('#chat-preview')).toBeNull()
 
       expect(screen.getByText('Preview')).toBeInTheDocument()
       expect(screen.getByText(/exit right after it starts on Windows/)).toBeInTheDocument()
