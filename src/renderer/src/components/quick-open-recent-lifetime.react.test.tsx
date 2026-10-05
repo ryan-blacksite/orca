@@ -39,7 +39,7 @@ it('keeps one pending eligibility scan and starts only the latest query after it
     worktreeId: 'wt-remote',
     query: 'file',
     recentPaths: ['src/file99.ts'],
-    onState: (state: RuntimeFileListState) => states.push(state)
+    states
   }
   try {
     const root = await renderProbe(args)
@@ -107,7 +107,7 @@ it('revokes pending eligibility on close and owner change without overlapping ho
     worktreeId: 'wt-remote',
     query: 'file',
     recentPaths: ['src/file99.ts'],
-    onState: (state: RuntimeFileListState) => states.push(state)
+    states
   }
   try {
     const root = await renderProbe(args)

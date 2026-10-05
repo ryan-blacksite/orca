@@ -94,18 +94,19 @@ export function seedRemoteWorktree(): void {
 
 export function HookProbe({
   enabled,
-  onState,
+  states,
   query,
   worktreeId,
   recentPaths
 }: {
   enabled: boolean
-  onState: (state: RuntimeFileListState) => void
+  states: RuntimeFileListState[]
   query?: string
   recentPaths?: readonly string[]
   worktreeId: string | null
 }): null {
-  onState(useRuntimeFileListForWorktree({ enabled, worktreeId, query, recentPaths }))
+  // Record every render before effects can settle ownership changes.
+  states.push(useRuntimeFileListForWorktree({ enabled, worktreeId, query, recentPaths }))
   return null
 }
 
@@ -128,7 +129,7 @@ export async function waitForListRuntimeFilesCall(): Promise<void> {
 
 export async function renderProbe(args: {
   enabled: boolean
-  onState: (state: RuntimeFileListState) => void
+  states: RuntimeFileListState[]
   query?: string
   recentPaths?: readonly string[]
   worktreeId: string | null

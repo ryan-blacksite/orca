@@ -40,19 +40,17 @@ describe('useRuntimeFileListForWorktree', () => {
       worktreesByRepo: {}
     })
     listRuntimeFilesMock.mockRejectedValueOnce(new Error('fixture launcher failed'))
-    let state: RuntimeFileListState | undefined
+    const states: RuntimeFileListState[] = []
     const args = {
       enabled: true,
       worktreeId: workspaceKey,
-      onState: (value: RuntimeFileListState) => {
-        state = value
-      }
+      states
     }
     const root = await renderProbe(args)
     await waitForListRuntimeFilesCall()
     await flushEffects()
-    expect(state?.loading).toBe(false)
-    expect(state?.loadError).toBe('fixture launcher failed')
+    expect(states.at(-1)?.loading).toBe(false)
+    expect(states.at(-1)?.loadError).toBe('fixture launcher failed')
     await act(async () => {
       root.render(createElement(HookProbe, { ...args, enabled: false }))
     })
@@ -61,9 +59,9 @@ describe('useRuntimeFileListForWorktree', () => {
       root.render(createElement(HookProbe, args))
     })
     await flushEffects()
-    expect(state?.loading).toBe(false)
-    expect(state?.loadError).toBeNull()
-    expect(state?.files).toEqual(['example.txt'])
+    expect(states.at(-1)?.loading).toBe(false)
+    expect(states.at(-1)?.loadError).toBeNull()
+    expect(states.at(-1)?.files).toEqual(['example.txt'])
   })
 
   it('lists a repo-less SSH folder workspace after folder metadata hydrates', async () => {
@@ -79,7 +77,7 @@ describe('useRuntimeFileListForWorktree', () => {
 
     await renderProbe({
       enabled: true,
-      onState: (state) => states.push(state),
+      states,
       worktreeId: workspaceKey
     })
 
@@ -135,7 +133,7 @@ describe('useRuntimeFileListForWorktree', () => {
 
     await renderProbe({
       enabled: true,
-      onState: (state) => states.push(state),
+      states,
       worktreeId: workspaceKey
     })
     await waitForListRuntimeFilesCall()
@@ -164,7 +162,7 @@ describe('useRuntimeFileListForWorktree', () => {
     try {
       await renderProbe({
         enabled: true,
-        onState: () => {},
+        states: [],
         query: 'remote-folder',
         worktreeId: workspaceKey
       })
@@ -196,7 +194,7 @@ describe('useRuntimeFileListForWorktree', () => {
 
     const root = await renderProbe({
       enabled: true,
-      onState: () => {},
+      states: [],
       worktreeId: workspaceKey
     })
     await waitForListRuntimeFilesCall()
@@ -224,7 +222,7 @@ describe('useRuntimeFileListForWorktree', () => {
 
     const root = await renderProbe({
       enabled: true,
-      onState: () => {},
+      states: [],
       worktreeId: workspaceKey
     })
     await waitForListRuntimeFilesCall()
@@ -237,7 +235,7 @@ describe('useRuntimeFileListForWorktree', () => {
       root.render(
         createElement(HookProbe, {
           enabled: false,
-          onState: () => {},
+          states: [],
           worktreeId: workspaceKey
         })
       )
@@ -257,7 +255,7 @@ describe('useRuntimeFileListForWorktree', () => {
       worktreesByRepo: {}
     } as Partial<AppState>)
 
-    await renderProbe({ enabled: true, onState: () => {}, worktreeId: workspaceKey })
+    await renderProbe({ enabled: true, states: [], worktreeId: workspaceKey })
     await waitForListRuntimeFilesCall()
 
     await act(async () => {
@@ -291,7 +289,7 @@ describe('useRuntimeFileListForWorktree', () => {
     try {
       await renderProbe({
         enabled: true,
-        onState: (state) => states.push(state),
+        states,
         query: 'sta-4354-target',
         worktreeId: 'wt-remote'
       })
@@ -332,7 +330,7 @@ describe('useRuntimeFileListForWorktree', () => {
     const states: RuntimeFileListState[] = []
     await renderProbe({
       enabled: true,
-      onState: (state) => states.push(state),
+      states,
       query: '   ',
       worktreeId: 'wt-remote'
     })
@@ -352,7 +350,7 @@ describe('useRuntimeFileListForWorktree', () => {
 
     await renderProbe({
       enabled: true,
-      onState: (state) => states.push(state),
+      states,
       query: 'x'.repeat(QUICK_OPEN_REMOTE_QUERY_MAX_CODE_UNITS + 1),
       worktreeId: 'wt-remote'
     })
@@ -373,7 +371,7 @@ describe('useRuntimeFileListForWorktree', () => {
     try {
       const root = await renderProbe({
         enabled: true,
-        onState: (state) => states.push(state),
+        states,
         query: 'target',
         worktreeId: 'wt-remote'
       })
@@ -385,7 +383,7 @@ describe('useRuntimeFileListForWorktree', () => {
         root.render(
           createElement(HookProbe, {
             enabled: true,
-            onState: (state: RuntimeFileListState) => states.push(state),
+            states,
             query: '',
             worktreeId: 'wt-remote'
           })
@@ -411,7 +409,7 @@ describe('useRuntimeFileListForWorktree', () => {
     const states: RuntimeFileListState[] = []
     await renderProbe({
       enabled: true,
-      onState: (state) => states.push(state),
+      states,
       worktreeId: 'wt-remote'
     })
     await waitForListRuntimeFilesCall()
@@ -443,7 +441,7 @@ describe('useRuntimeFileListForWorktree', () => {
     try {
       const root = await renderProbe({
         enabled: true,
-        onState: (state) => states.push(state),
+        states,
         query: 'tar',
         worktreeId: 'wt-remote'
       })
@@ -454,7 +452,7 @@ describe('useRuntimeFileListForWorktree', () => {
         root.render(
           createElement(HookProbe, {
             enabled: true,
-            onState: (state: RuntimeFileListState) => states.push(state),
+            states,
             query: 'target',
             worktreeId: 'wt-remote'
           })
@@ -491,7 +489,7 @@ describe('useRuntimeFileListForWorktree', () => {
     try {
       const root = await renderProbe({
         enabled: true,
-        onState: (state) => states.push(state),
+        states,
         query: 'tar',
         worktreeId: 'wt-remote'
       })
@@ -504,7 +502,7 @@ describe('useRuntimeFileListForWorktree', () => {
         root.render(
           createElement(HookProbe, {
             enabled: true,
-            onState: (state: RuntimeFileListState) => states.push(state),
+            states,
             query: 'target',
             worktreeId: 'wt-remote'
           })
@@ -530,7 +528,7 @@ describe('useRuntimeFileListForWorktree', () => {
     try {
       const root = await renderProbe({
         enabled: true,
-        onState: (state) => states.push(state),
+        states,
         query: 'tar',
         worktreeId: 'wt-remote'
       })
@@ -543,7 +541,7 @@ describe('useRuntimeFileListForWorktree', () => {
         root.render(
           createElement(HookProbe, {
             enabled: true,
-            onState: (state: RuntimeFileListState) => states.push(state),
+            states,
             query: 'target',
             worktreeId: 'wt-remote'
           })
@@ -571,7 +569,7 @@ describe('useRuntimeFileListForWorktree', () => {
 
     const root = await renderProbe({
       enabled: true,
-      onState: (state) => states.push(state),
+      states,
       query: 'one',
       worktreeId: workspaceKey
     })
@@ -583,7 +581,7 @@ describe('useRuntimeFileListForWorktree', () => {
       root.render(
         createElement(HookProbe, {
           enabled: true,
-          onState: (state: RuntimeFileListState) => states.push(state),
+          states,
           query: 'two',
           worktreeId: workspaceKey
         })
@@ -612,7 +610,7 @@ it('merges host-eligible history beyond remote top32 once per palette lifetime',
     worktreeId: 'wt-remote',
     query: 'file',
     recentPaths: ['src/file99.ts', 'src/deleted.ts'],
-    onState: (state: RuntimeFileListState) => states.push(state)
+    states
   }
   const root = await renderProbe(args)
   await act(async () => {
@@ -654,7 +652,7 @@ it('keeps ordinary remote search available when recent eligibility is unsupporte
     worktreeId: 'wt-remote',
     query: 'file',
     recentPaths: ['src/file99.ts'],
-    onState: (state) => states.push(state)
+    states
   })
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 150))
@@ -680,7 +678,7 @@ it('merges an eligible recent beyond the local empty-query inventory cap', async
     worktreeId: folderWorkspaceKey(workspace.id),
     query: '',
     recentPaths: ['late.ts'],
-    onState: (state) => states.push(state)
+    states
   })
   await flushEffects()
   expect(states.at(-1)?.files).toContain('late.ts')
