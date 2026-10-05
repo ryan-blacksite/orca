@@ -1,7 +1,8 @@
+import { statUserOpenedPath } from '@/lib/user-opened-local-path'
 import { detectLanguage } from '@/lib/language-detect'
 import { joinPath, getRelativePathInsideRoot } from '@/lib/path'
 import { useAppStore } from '@/store'
-import { isMissingRuntimePathError, statRuntimePath } from '@/runtime/runtime-file-client'
+import { isMissingRuntimePathError } from '@/runtime/runtime-file-client'
 import { getActiveRuntimeTarget, callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from '@/runtime/runtime-worktree-selector'
 import type { RuntimeTerminalPathResolution } from '../../../shared/runtime-file-contracts'
@@ -21,12 +22,18 @@ export async function openQuickOpenFile(
   worktreeId: string,
   root: string,
   navigation: QuickOpenQueryTarget,
-  rawQuery?: string
+  rawQuery?: string,
+  assertInteractionCurrent: () => void = () => {}
 ): Promise<void> {
   const guard = captureFileExplorerOperationGuard(
     worktreeId,
     getFileExplorerOperationOwner(worktreeId)
   )
+  const assertCurrent = (): void => {
+    guard.assertCurrent()
+    assertInteractionCurrent()
+  }
+  assertCurrent()
   const route = guard.route
   const target = getActiveRuntimeTarget(route.settings)
   const resolvePastedPath = (path: string): string =>
@@ -39,21 +46,24 @@ export async function openQuickOpenFile(
   let filePath = isAbsolute ? resolvePastedPath(selectedPath) : joinPath(root, selectedPath)
   let relativePath = getRelativePathInsideRoot(filePath, root) ?? filePath
   const context = { ...route, worktreeId, worktreePath: root }
-  let literalSelected = false
+  const literalQuery = rawQuery?.trim().replace(/\\/g, '/')
+  const normalizedSelection = selectedPath.replace(/\\/g, '/')
+  let literalSelected = Boolean(
+    literalQuery &&
+    (normalizedSelection === literalQuery || normalizedSelection.endsWith(`/${literalQuery}`))
+  )
   if (isAbsolute && rawQuery && rawQuery.trim() !== selectedPath && target.kind !== 'environment') {
     try {
       const literalPath = resolvePastedPath(rawQuery.trim())
-      if (!route.connectionId) {
-        await window.api.fs.authorizeExternalPath({ targetPath: literalPath })
-        guard.assertCurrent()
-      }
-      const literalStats = await statRuntimePath(context, literalPath)
-      guard.assertCurrent()
+      const literalStats = await statUserOpenedPath(context, literalPath)
+      assertCurrent()
       if (literalStats.isDirectory) {
         throw new Error('Choose a file rather than a directory.')
       }
       filePath = literalPath
-      relativePath = getRelativePathInsideRoot(filePath, root) ?? filePath
+      relativePath = literalStats.escapesWorktree
+        ? filePath
+        : (getRelativePathInsideRoot(filePath, root) ?? filePath)
       literalSelected = true
     } catch (error) {
       if (!isMissingRuntimePathError(error)) {
@@ -72,7 +82,7 @@ export async function openQuickOpenFile(
           pathText: rawQuery.trim()
         }
       )
-      guard.assertCurrent()
+      assertCurrent()
       literalSelected = literal.exists
     }
     const resolved =
@@ -82,7 +92,7 @@ export async function openQuickOpenFile(
             worktree: toRuntimeWorktreeSelector(worktreeId),
             pathText: filePath
           })
-    guard.assertCurrent()
+    assertCurrent()
     if (!resolved.exists || resolved.isDirectory || !resolved.absolutePath) {
       throw new Error('The host could not open this file path.')
     }
@@ -94,19 +104,16 @@ export async function openQuickOpenFile(
     filePath = resolved.absolutePath
     relativePath = resolved.relativePath
   } else {
-    if (
-      !route.connectionId &&
-      (isAbsolute || useAppStore.getState().settings?.followSymlinkedDirectories)
-    ) {
-      await window.api.fs.authorizeExternalPath({ targetPath: filePath })
-      guard.assertCurrent()
+    const stats = await statUserOpenedPath(context, filePath)
+    assertCurrent()
+    if (stats.escapesWorktree) {
+      relativePath = filePath
     }
-    const stats = await statRuntimePath(context, filePath)
-    guard.assertCurrent()
     if (stats.isDirectory) {
       throw new Error('Choose a file rather than a directory.')
     }
   }
+  assertCurrent()
   const store = useAppStore.getState()
   const fileId = store.openFile({
     filePath,

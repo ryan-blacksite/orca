@@ -1,3 +1,4 @@
+import { useQuickOpenInteraction } from './use-quick-open-interaction'
 import React, {
   useCallback,
   useDeferredValue,
@@ -75,15 +76,19 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
   const parsedTarget = useMemo(() => parseQuickOpenQueryTarget(deferredQuery), [deferredQuery])
   const absoluteQuery = isQuickOpenAbsolutePath(parsedTarget.pathQuery)
   const [openError, setOpenError] = useState<string | null>(null)
-  const [opening, setOpening] = useState(false)
+  const { opening, invalidate, begin } = useQuickOpenInteraction(activeWorktreeId)
   const [selectedPath, setSelectedPath] = useState('')
+  const worktreePath = activeWorktree?.path ?? null
+  const scope =
+    activeWorktreeId && worktreePath
+      ? quickOpenHistoryScope(useAppStore.getState(), activeWorktreeId, worktreePath)
+      : null
+  const history = useSyncExternalStore(subscribeQuickOpenHistory, () => readQuickOpenHistory(scope))
   const { files, loading, loadError, truncated } = useRuntimeFileListForWorktree({
     enabled: visible && !absoluteQuery,
     worktreeId: activeWorktreeId,
     query: parsedTarget.pathQuery
   })
-
-  const worktreePath = activeWorktree?.path ?? null
 
   // Why: Radix's onCloseAutoFocus restore is suppressed below, so dismissing
   // the dialog (Esc / click-away) would otherwise leave the active panel
@@ -106,11 +111,6 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
       files.includes(deferredQuery.trim()) ? { pathQuery: deferredQuery.trim() } : parsedTarget,
     [files, deferredQuery, parsedTarget]
   )
-  const scope =
-    activeWorktreeId && worktreePath
-      ? quickOpenHistoryScope(useAppStore.getState(), activeWorktreeId, worktreePath)
-      : null
-  const history = useSyncExternalStore(subscribeQuickOpenHistory, () => readQuickOpenHistory(scope))
   const filtered = useMemo(() => {
     if (absoluteQuery) {
       return [{ path: parsedTarget.pathQuery, score: 0 }]
@@ -123,7 +123,7 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
       if (!activeWorktreeId || !worktreePath || opening) {
         return
       }
-      setOpening(true)
+      const interaction = begin()
       setOpenError(null)
       try {
         await openQuickOpenFile(
@@ -131,14 +131,18 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
           activeWorktreeId,
           worktreePath,
           effectiveTarget,
-          deferredQuery
+          deferredQuery,
+          interaction.assertCurrent
         )
+        interaction.assertCurrent()
         skipReturnFocus()
         closeModal()
       } catch (error) {
-        setOpenError(error instanceof Error ? error.message : String(error))
+        if (interaction.isCurrent()) {
+          setOpenError(error instanceof Error ? error.message : String(error))
+        }
       } finally {
-        setOpening(false)
+        interaction.finish()
       }
     },
     [
@@ -147,6 +151,7 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
       effectiveTarget,
       deferredQuery,
       opening,
+      begin,
       closeModal,
       skipReturnFocus
     ]
@@ -155,10 +160,11 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
+        invalidate()
         closeModal()
       }
     },
-    [closeModal]
+    [closeModal, invalidate]
   )
 
   const handleCloseAutoFocus = useCallback((e: Event) => {
@@ -190,6 +196,7 @@ function QuickOpenContent({ visible }: { visible: boolean }): React.JSX.Element 
         placeholder={translate('auto.components.QuickOpen.1cb6ef47b7', 'Go to file...')}
         value={query}
         onValueChange={(value) => {
+          invalidate()
           setQuery(value)
           setSelectedPath('')
           setOpenError(null)
