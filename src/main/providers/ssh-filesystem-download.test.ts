@@ -267,3 +267,45 @@ describe('downloadFolderViaSftp', () => {
     expect(sftp.end).toHaveBeenCalledTimes(1)
   })
 })
+
+it.each(['EOF', 'CLOSE'])(
+  'does not create an empty destination when cancelled at %s',
+  async (boundary) => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-sftp-final-abort-'))
+    const destination = join(root, 'target')
+    const controller = new AbortController()
+    const reason = new Error('cancel at final boundary')
+    const sftp = withSftpDirectoryHandles({
+      stat: (_path: string, callback: (error: undefined, stats: unknown) => void) =>
+        callback(undefined, sftpStats('directory')),
+      readdir: (_path: string, callback: (error: undefined, entries: unknown) => void) =>
+        callback(undefined, []),
+      end: vi.fn()
+    })
+    sftp.readdir = (_handle, callback) => {
+      callback(Object.assign(new Error('EOF'), { code: 1 }), [])
+    }
+    if (boundary === 'EOF') {
+      sftp.readdir = (_handle, callback) => {
+        callback(Object.assign(new Error('EOF'), { code: 1 }), [])
+        controller.abort(reason)
+      }
+    } else {
+      sftp.close = (_handle, callback) => {
+        controller.abort(reason)
+        callback(null)
+      }
+    }
+    try {
+      await expect(
+        downloadFolderViaSftp(async () => sftp, '/empty', destination, {
+          signal: controller.signal
+        })
+      ).rejects.toBe(reason)
+      const { access } = await import('node:fs/promises')
+      await expect(access(destination)).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+)

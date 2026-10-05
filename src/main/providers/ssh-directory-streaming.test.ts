@@ -145,3 +145,72 @@ it('preserves capacity failure when CLOSE never acknowledges', async () => {
     vi.useRealTimers()
   }
 })
+
+it('rejects explicit failed CLOSE and retires the persistent channel', async () => {
+  const { sftp, mock } = fixture([])
+  const end = vi.fn()
+  Object.assign(sftp, { end })
+  const failure = new Error('CLOSE failed')
+  mock.close.mockImplementation((_handle, callback) => callback(failure))
+  await expect(readDirViaSftp(sftp, '/folder')).rejects.toBe(failure)
+  expect(end).toHaveBeenCalledOnce()
+})
+
+it('rejects EOF CLOSE timeout without claiming acknowledgement; late callback stays inert', async () => {
+  vi.useFakeTimers()
+  try {
+    const { sftp, mock } = fixture([])
+    const end = vi.fn()
+    Object.assign(sftp, { end })
+    let lateClose: (() => void) | undefined
+    mock.close.mockImplementation((_handle, callback) => {
+      lateClose = () => callback(null)
+    })
+    const rejected = expect(readDirViaSftp(sftp, '/folder')).rejects.toThrow('CLOSE timed out')
+    await vi.advanceTimersByTimeAsync(5000)
+    await rejected
+    expect(end).toHaveBeenCalledOnce()
+    lateClose?.()
+    expect(end).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it.each(['EOF callback', 'CLOSE callback'])(
+  'preserves abort reason during final %s',
+  async (boundary) => {
+    const { sftp, mock } = fixture([])
+    const controller = new AbortController()
+    const reason = new Error('original final cancellation')
+    if (boundary === 'EOF callback') {
+      mock.readdir.mockImplementation((_handle, callback) => {
+        callback(null, false)
+        controller.abort(reason)
+      })
+    } else {
+      mock.close.mockImplementation((_handle, callback) => {
+        controller.abort(reason)
+        callback(null)
+      })
+    }
+    await expect(readDirViaSftp(sftp, '/folder', { signal: controller.signal })).rejects.toBe(
+      reason
+    )
+  }
+)
+
+it('preserves a consumer capacity failure when CLOSE explicitly fails', async () => {
+  const { sftp, mock } = fixture([['x'.repeat(5 * 1024 * 1024)]])
+  mock.close.mockImplementation((_handle, callback) => callback(new Error('cleanup failed')))
+  await expect(readDirViaSftp(sftp, '/folder')).rejects.toThrow('too large')
+})
+
+it('keeps the persistent channel for acknowledged normal EOF', async () => {
+  const { sftp } = fixture([['visible']])
+  const end = vi.fn()
+  Object.assign(sftp, { end })
+  await expect(readDirViaSftp(sftp, '/folder')).resolves.toHaveLength(1)
+  expect(end).not.toHaveBeenCalled()
+})

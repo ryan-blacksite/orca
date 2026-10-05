@@ -115,7 +115,9 @@ async function downloadDirectoryTree(
       })
     }
 
+    signal?.throwIfAborted()
     await mkdir(destinationDir, { recursive: false })
+    signal?.throwIfAborted()
     for (const { remoteName, kind, localName } of plannedEntries) {
       signal?.throwIfAborted()
       const remotePath = joinSftpChildPath(sourceDir, remoteName, windowsRemotePaths)
@@ -137,6 +139,7 @@ async function downloadDirectoryTree(
       await reserveLocalFile(localPath, localName)
       await fastGetViaSftp(sftp, remotePath, localPath, { signal })
     }
+    signal?.throwIfAborted()
   } finally {
     budget.release(retainedBytes, usedLocalNames.size + 1)
   }
@@ -194,6 +197,7 @@ export async function downloadFolderViaSftp(
       signal,
       options?.windowsRemotePaths
     )
+    signal?.throwIfAborted()
   } finally {
     signal?.removeEventListener('abort', endSftp)
     endSftp()

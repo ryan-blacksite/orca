@@ -1,4 +1,5 @@
 import { DirectoryListingBudget } from '../../shared/directory-listing-budget'
+import { SftpFilesystemChannel } from './ssh-sftp-filesystem-channel'
 /**
  * Filesystem provider for plain SSH mode (design D6 rung D): read, list, stat and write over
  * one reused SFTP channel. Anything that needs the Orca remote server (search, file lists,
@@ -64,52 +65,23 @@ function isBinaryBuffer(buffer: Buffer): boolean {
 }
 
 export class SshSftpFilesystemProvider implements IFilesystemProvider {
-  private sftpPromise: Promise<SFTPWrapper> | null = null
-  private disposed = false
+  private readonly channel: SftpFilesystemChannel
 
   constructor(
     private readonly connectionId: string,
     private readonly createSftp: SftpFactory,
     private readonly mode: SshPlainSshMode,
     private readonly windowsRemotePaths = false
-  ) {}
+  ) {
+    this.channel = new SftpFilesystemChannel(createSftp)
+  }
 
   getConnectionId(): string {
     return this.connectionId
   }
 
   dispose(): void {
-    this.disposed = true
-    const pending = this.sftpPromise
-    this.sftpPromise = null
-    void pending?.then(
-      (sftp) => sftp.end(),
-      () => {}
-    )
-  }
-
-  private async sftp(): Promise<SFTPWrapper> {
-    if (this.disposed) {
-      throw new Error('SSH connection is not active')
-    }
-    if (!this.sftpPromise) {
-      const opening = this.createSftp().then((sftp) => {
-        // Why: a closed channel must not be reused; the next call reopens one.
-        sftp.once('close', () => {
-          if (this.sftpPromise === opening) {
-            this.sftpPromise = null
-          }
-        })
-        return sftp
-      })
-      opening.catch(() => {
-        if (this.sftpPromise === opening) {
-          this.sftpPromise = null
-        }
-      })
-      this.sftpPromise = opening
-    }
-    return this.sftpPromise
+    this.channel.dispose()
   }
 
   /** Round-trips one SFTP request; a silent transport times out as not alive. */
@@ -133,7 +105,7 @@ export class SshSftpFilesystemProvider implements IFilesystemProvider {
 
   private async run<T>(op: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
     try {
-      return await op(await this.sftp())
+      return await op(await this.channel.get())
     } catch (error) {
       throw normalizeSftpError(error)
     }

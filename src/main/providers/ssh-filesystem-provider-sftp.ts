@@ -116,6 +116,8 @@ export async function* readDirectoryEntriesViaSftp(
       }),
     options
   )
+  let reachedEof = false
+  let closeError: Error | undefined
   try {
     options?.signal?.throwIfAborted()
     while (true) {
@@ -126,18 +128,16 @@ export async function* readDirectoryEntriesViaSftp(
           options
         )
       } catch (error) {
-        if (
-          !options?.signal?.aborted &&
-          error instanceof Error &&
-          'code' in error &&
-          error.code === 1
-        ) {
-          return
+        options?.signal?.throwIfAborted()
+        if (error instanceof Error && 'code' in error && error.code === 1) {
+          reachedEof = true
+          break
         }
         throw error
       }
       if (chunk === false) {
-        return
+        reachedEof = true
+        break
       }
       for (const entry of chunk) {
         options?.signal?.throwIfAborted()
@@ -147,7 +147,14 @@ export async function* readDirectoryEntriesViaSftp(
       }
     }
   } finally {
-    await closeSftpDirectoryHandle(sftp, handle)
+    closeError = await closeSftpDirectoryHandle(sftp, handle)
+  }
+  // Consumer failures enter finally via return(); do not replace their reason.
+  if (reachedEof) {
+    options?.signal?.throwIfAborted()
+    if (closeError) {
+      throw closeError
+    }
   }
 }
 
@@ -162,6 +169,7 @@ export async function readDirViaSftp(
     budget.record(entry.filename)
     entries.push(entry)
   }
+  options?.signal?.throwIfAborted()
   return entries
 }
 
