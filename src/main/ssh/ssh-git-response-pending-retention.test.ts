@@ -147,3 +147,99 @@ it('accepts an exact-budget honest response split across padded base64 chunks', 
   f.replies[0](marker(1, 64, 4))
   await expect(result).resolves.toBe('x'.repeat(62))
 })
+
+it.each(['', '====', '!'])(
+  'rejects zero-progress chunks %j without retaining or ACKing them',
+  async (data) => {
+    const f = fixture()
+    const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: 64 })
+    const rejected = expect(result).rejects.toThrow('byte progress')
+    f.replies[0](marker(1, 2, 1))
+    await Promise.resolve()
+    for (let seq = 0; seq < 100_000; seq++) {
+      f.emit('git.responseChunk', { streamId: 1, seq, data })
+    }
+    await rejected
+    expect(f.mock.notify).not.toHaveBeenCalledWith('git.responseAck', expect.anything())
+    expect(f.mock.notify).toHaveBeenCalledWith('git.cancelResponseStream', { streamId: 1 })
+    expect(f.listenerCount()).toBe(0)
+  }
+)
+
+it.each([
+  ['chunks', 2, 1, '['],
+  ['bytes', 2, 2, '[]']
+])('rejects excess declared %s before ACKing', async (_kind, total, chunks, text) => {
+  const f = fixture()
+  const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: 64 })
+  const rejected = expect(result).rejects.toThrow('declared')
+  f.replies[0](marker(1, Number(total), Number(chunks)))
+  await Promise.resolve()
+  f.emit('git.responseChunk', {
+    streamId: 1,
+    seq: 0,
+    data: Buffer.from(String(text)).toString('base64')
+  })
+  f.emit('git.responseChunk', { streamId: 1, seq: 1, data: Buffer.from(']').toString('base64') })
+  await rejected
+  expect(f.mock.notify.mock.calls.filter(([method]) => method === 'git.responseAck')).toHaveLength(
+    1
+  )
+  expect(f.listenerCount()).toBe(0)
+})
+
+it('rejects an enormous declared count independently of continued empty frames', async () => {
+  const f = fixture()
+  const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: 64 })
+  const rejected = expect(result).rejects.toThrow('chunk count')
+  f.replies[0](marker(1, 2, Number.MAX_SAFE_INTEGER))
+  await rejected
+  expect(f.listenerCount()).toBe(0)
+})
+
+it.each([true, false])(
+  'bounds owned error diagnostics with metadata first: %s',
+  async (metadataFirst) => {
+    const f = fixture()
+    const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: 64 })
+    const rejected = expect(result).rejects.toThrow('retention budget')
+    if (metadataFirst) {
+      f.replies[0](marker(1, 2, 1))
+      await Promise.resolve()
+    }
+    f.emit('git.responseError', { streamId: 1, message: 'x'.repeat(1024 * 1024) })
+    if (!metadataFirst) {
+      f.replies[0](marker(1, 2, 1))
+    }
+    await rejected
+    expect(f.listenerCount()).toBe(0)
+  }
+)
+
+it('preserves short upstream error text', async () => {
+  const f = fixture()
+  const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: 64 })
+  const rejected = expect(result).rejects.toThrow('permission denied')
+  f.replies[0](marker(1, 2, 1))
+  await Promise.resolve()
+  f.emit('git.responseError', { streamId: 1, message: 'permission denied' })
+  await rejected
+})
+
+it('reassembles one-byte valid chunks without a per-chunk retained buffer', async () => {
+  const f = fixture()
+  const text = JSON.stringify('x'.repeat(100_000))
+  const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: text.length })
+  f.replies[0](marker(1, text.length, text.length))
+  await Promise.resolve()
+  for (let seq = 0; seq < text.length; seq++) {
+    f.emit('git.responseChunk', {
+      streamId: 1,
+      seq,
+      data: Buffer.from(text[seq]).toString('base64')
+    })
+  }
+  f.emit('git.responseEnd', { streamId: 1 })
+  await expect(result).resolves.toBe('x'.repeat(100_000))
+  expect(f.listenerCount()).toBe(0)
+})

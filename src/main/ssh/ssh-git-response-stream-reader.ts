@@ -1,5 +1,9 @@
 import { stringifyJsonWithinByteLimit } from '../../shared/node-bounded-json-stringify'
-import { SshResponsePendingFrames } from './ssh-response-pending-frames'
+import {
+  SshResponsePendingFrames,
+  boundedSshResponseDiagnostic
+} from './ssh-response-pending-frames'
+import { SshResponsePayload } from './ssh-response-payload'
 import type { SshChannelMultiplexer } from './ssh-channel-multiplexer'
 import { createSshDisposalError } from './ssh-channel-multiplexer'
 import { RelayErrorCode, isGitResponseStreamMarker } from './relay-protocol'
@@ -61,9 +65,8 @@ export function requestGitStreamable(
   }
 
   return new Promise<unknown>((resolve, reject) => {
-    const parts: Buffer[] = []
+    let payload: SshResponsePayload | undefined
     let expectedSeq = 0
-    let receivedBytes = 0
     let totalBytes = 0
     let chunkCount = 0
     let settled = false
@@ -110,7 +113,7 @@ export function requestGitStreamable(
         return
       }
       settled = true
-      parts.length = 0
+      payload?.clear()
       pending.clear()
       clearInactivity()
       cancel()
@@ -122,7 +125,7 @@ export function requestGitStreamable(
         return
       }
       settled = true
-      parts.length = 0
+      payload?.clear()
       pending.clear()
       clearInactivity()
       cleanup()
@@ -147,23 +150,12 @@ export function requestGitStreamable(
         )
         return
       }
-      if (
-        options?.maxResponseBytes !== undefined &&
-        data.length > Math.ceil(options.maxResponseBytes / 3) * 4
-      ) {
-        fail(new GitResponseStreamError('Filesystem response exceeds the retention budget'))
+      try {
+        payload?.append(data)
+      } catch (error) {
+        fail(new GitResponseStreamError(String(error)))
         return
       }
-      const decoded = Buffer.from(data, 'base64')
-      if (
-        options?.maxResponseBytes !== undefined &&
-        receivedBytes + decoded.length > options.maxResponseBytes
-      ) {
-        fail(new GitResponseStreamError('Filesystem response exceeds the retention budget'))
-        return
-      }
-      parts.push(decoded)
-      receivedBytes += decoded.length
       expectedSeq += 1
       armInactivity()
       // Why: credit-based flow control — the relay caps unacked chunks so a big
@@ -181,20 +173,20 @@ export function requestGitStreamable(
       if (settled || p.streamId !== streamIdRef.current) {
         return
       }
-      if (expectedSeq !== chunkCount || receivedBytes !== totalBytes) {
+      if (expectedSeq !== chunkCount || payload?.receivedBytes !== totalBytes) {
         fail(
           new GitResponseStreamError(
-            `Git stream ${streamIdRef.current} incomplete: chunks ${expectedSeq}/${chunkCount}, bytes ${receivedBytes}/${totalBytes}`
+            `Git stream ${streamIdRef.current} incomplete: chunks ${expectedSeq}/${chunkCount}, bytes ${payload?.receivedBytes}/${totalBytes}`
           )
         )
         return
       }
       try {
-        succeed(JSON.parse(Buffer.concat(parts).toString('utf-8')))
+        succeed(JSON.parse(payload?.takeString() ?? ''))
       } catch (err) {
         fail(
           new GitResponseStreamError(
-            `Git stream ${streamIdRef.current} JSON parse failed: ${String(err)}`
+            `Git stream ${streamIdRef.current} JSON parse failed: ${boundedSshResponseDiagnostic(String(err), options?.maxResponseBytes)}`
           )
         )
       }
@@ -204,7 +196,7 @@ export function requestGitStreamable(
       if (settled || p.streamId !== streamIdRef.current) {
         return
       }
-      fail(new Error(typeof p.message === 'string' ? p.message : 'git response stream error'))
+      fail(new Error(boundedSshResponseDiagnostic(p.message, options?.maxResponseBytes)))
     }
 
     const drainPending = (): void => {
@@ -311,10 +303,7 @@ export function requestGitStreamable(
           )
           return
         }
-        if (options?.maxResponseBytes !== undefined && totalBytes > options.maxResponseBytes) {
-          fail(new GitResponseStreamError('Filesystem response exceeds the retention budget'))
-          return
-        }
+        payload = new SshResponsePayload(totalBytes, chunkCount, options?.maxResponseBytes)
         metadataReady = true
         // Why: start the inactivity deadline now — mux.request's timeout only
         // covered the sentinel; the reassembly phase needs its own guard.

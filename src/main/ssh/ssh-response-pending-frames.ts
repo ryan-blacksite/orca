@@ -1,6 +1,15 @@
 const MAX_PENDING_FRAMES = 64
 const DEFAULT_PENDING_RESPONSE_BYTES = 64 * 1024 * 1024
 
+export function boundedSshResponseDiagnostic(message: unknown, maxResponseBytes?: number): string {
+  if (typeof message !== 'string') {
+    return 'git response stream error'
+  }
+  return message.length * 2 <= Math.min(8192, maxResponseBytes ?? 8192)
+    ? message
+    : 'Filesystem response error exceeds the retention budget'
+}
+
 export type PendingResponseFrame = {
   kind: 'chunk' | 'end' | 'error'
   params: Record<string, unknown>
@@ -14,8 +23,10 @@ export class SshResponsePendingFrames {
   private encodedBytes = 0
   private evidenceOverflow = false
   readonly maxEncodedBytes: number
+  private readonly maxDiagnosticBytes: number
 
   constructor(maxResponseBytes = DEFAULT_PENDING_RESPONSE_BYTES) {
+    this.maxDiagnosticBytes = Math.min(8192, maxResponseBytes)
     // Each chunk pads independently; allow bounded padding as well as two-byte code units.
     this.maxEncodedBytes =
       Math.ceil(maxResponseBytes / 3) * 8 + (maxResponseBytes > 0 ? MAX_PENDING_FRAMES * 8 : 0)
@@ -36,7 +47,10 @@ export class SshResponsePendingFrames {
     }
     const text = kind === 'chunk' ? source.data : kind === 'error' ? source.message : undefined
     const encodedBytes = typeof text === 'string' ? text.length * 2 : 0
-    if (encodedBytes > this.maxEncodedBytes) {
+    if (
+      encodedBytes > this.maxEncodedBytes ||
+      (kind === 'error' && encodedBytes > this.maxDiagnosticBytes)
+    ) {
       this.recordDrop(streamId)
       return
     }
