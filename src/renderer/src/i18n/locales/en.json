@@ -175,7 +175,7 @@
   },
   "settings": {
     "chat": {
-      "description": "Chat appearance."
+      "description": "Choose how chats look."
     },
     "terminal": {
       "optionLayoutAlt": "ABC or U.S. — Option sends Alt/Esc sequences",

@@ -12,7 +12,7 @@
   },
   "settings": {
     "chat": {
-      "description": "聊天外观。"
+      "description": "选择聊天的外观。"
     },
     "terminal": {
       "optionLayoutAlt": "ABC 或 U.S. — Option 键发送 Alt/Esc 序列",

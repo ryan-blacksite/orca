@@ -111,7 +111,7 @@
   },
   "settings": {
     "chat": {
-      "description": "Apparence du chat."
+      "description": "Choisissez l’apparence des chats."
     },
     "terminal": {
       "optionLayoutAlt": "ABC ou U.S. — Option envoie des séquences Alt/Esc",

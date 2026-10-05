@@ -39,7 +39,7 @@ export function buildInterfaceSettingsSections({
           {
             id: 'chat',
             title: translate('settings.appearance.chat.title', 'Chat'),
-            description: translate('settings.chat.description', 'Chat appearance.'),
+            description: translate('settings.chat.description', 'Choose how chats look.'),
             icon: MessageSquare,
             searchEntries: getChatAppearanceSearchEntries(),
             group: 'interface'

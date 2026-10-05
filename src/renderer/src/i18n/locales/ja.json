@@ -12,7 +12,7 @@
   },
   "settings": {
     "chat": {
-      "description": "チャットの外観。"
+      "description": "チャットの外観を選びます。"
     },
     "terminal": {
       "optionLayoutAlt": "ABCまたはU.S. — OptionはAlt/Escシーケンスを送信します",

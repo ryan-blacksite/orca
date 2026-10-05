@@ -28,7 +28,7 @@ export function ChatSettingsSection({
     <SettingsSection
       id="chat"
       title={title}
-      description={translate('settings.chat.description', 'Chat appearance.')}
+      description={translate('settings.chat.description', 'Choose how chats look.')}
       searchEntries={searchEntries}
     >
       {isMounted ? (

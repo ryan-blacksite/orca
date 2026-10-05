@@ -12,7 +12,7 @@
   },
   "settings": {
     "chat": {
-      "description": "Apariencia del chat."
+      "description": "Elige el aspecto de los chats."
     },
     "terminal": {
       "optionLayoutAlt": "ABC o EE. UU. — Option envía secuencias Alt/Esc",
