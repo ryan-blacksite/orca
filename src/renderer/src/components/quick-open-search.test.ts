@@ -213,14 +213,36 @@ it('matches independent unique terms in either order in streaming and indexed se
   }
 })
 
-it('rejects more than 32 unique terms but permits duplicates', () => {
-  const paths = prepareQuickOpenFiles(['a'.repeat(40)])
-  expect(
-    rankQuickOpenFiles(Array.from({ length: 33 }, (_, i) => `a${i}`).join(' '), paths)
-  ).toEqual([])
-  expect(rankQuickOpenFiles(Array(40).fill('a').join(' '), paths)).toEqual(
-    rankQuickOpenFiles('a', paths)
+it('preserves every term in valid queries beyond 32 unique terms', () => {
+  const terms = Array.from({ length: 33 }, (_, i) => `a${i}`)
+  const path = `${terms.join('-')}.ts`
+  const query = terms.join(' ')
+  expect(query.length).toBe(121)
+  expect(path.length).toBe(124)
+  const indexed = prepareQuickOpenFiles([path, 'a0.ts'])
+  expect(rankQuickOpenFiles(query, indexed).map((item) => item.path)).toEqual([path])
+  const ranker = new QuickOpenPathRanker(query, 50)
+  ranker.consider(path)
+  expect(ranker.result().paths).toEqual([path])
+  expect(rankQuickOpenFiles(`${query} missing`, indexed)).toEqual([])
+  expect(rankQuickOpenFiles(Array(40).fill('a').join(' '), indexed)).toEqual(
+    rankQuickOpenFiles('a', indexed)
   )
+})
+
+it.each([
+  ['user-profile', 'user/UserProfile/index.tsx'],
+  ['user-profile', 'user/UserProfile/components/views/index.tsx'],
+  ['product_detail', 'product/ProductDetail.ts'],
+  ['tab_bar_create_entry', 'tab-bar/TabBarCreateEntry.tsx'],
+  ['tab_bar_create_entry', 'tab-bar/TabBarCreateEntry/components/views/index.tsx']
+])('reconsiders separator alternatives for %s beneath an ancestor', (query, path) => {
+  expect(rankQuickOpenFiles(query, prepareQuickOpenFiles([path])).map((item) => item.path)).toEqual(
+    [path]
+  )
+  const ranker = new QuickOpenPathRanker(query, 50)
+  ranker.consider(path)
+  expect(ranker.result().paths).toEqual([path])
 })
 
 it('matches separator variants while preferring the separator typed', () => {
@@ -265,5 +287,19 @@ it('bridges camel and acronym word boundaries for typed separators without match
   ])
   expect(rankQuickOpenFiles('product-', files).map((item) => item.path)).toContain(
     'src/ProductDetail.ts'
+  )
+})
+
+it('evaluates all terms up to the existing byte limit and rejects only oversized input', () => {
+  const terms = Array.from({ length: 350 }, (_, i) => `t${i}`)
+  const query = terms.join(' ')
+  const path = `${terms.join('/')}.ts`
+  expect(query.length).toBeLessThan(2048)
+  expect(rankQuickOpenFiles(query, prepareQuickOpenFiles([path])).map((item) => item.path)).toEqual(
+    [path]
+  )
+  expect(rankQuickOpenFiles(`${query} absent`, prepareQuickOpenFiles([path]))).toEqual([])
+  expect(rankQuickOpenFiles(`${query}${' '.repeat(2048)}`, prepareQuickOpenFiles([path]))).toEqual(
+    []
   )
 })
