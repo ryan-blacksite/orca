@@ -6,15 +6,16 @@ import type * as Os from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
+import type { CodexHookTrustAnswer } from './codex-hook-trust-memo'
 
-const { getPathMock, homedirMock, installExclusivelyMock, refreshExclusivelyMock } = vi.hoisted(
-  () => ({
+const { getPathMock, homedirMock, installExclusivelyMock, refreshExclusivelyMock, answerMock } =
+  vi.hoisted(() => ({
     getPathMock: vi.fn<(name: string) => string>(),
     homedirMock: vi.fn<() => string>(),
     installExclusivelyMock: vi.fn<(runtimeHomePath: string) => Promise<AgentHookInstallStatus>>(),
-    refreshExclusivelyMock: vi.fn<(runtimeHomePath: string) => Promise<AgentHookInstallStatus>>()
-  })
-)
+    refreshExclusivelyMock: vi.fn<(runtimeHomePath: string) => Promise<AgentHookInstallStatus>>(),
+    answerMock: vi.fn<(waitMs: number) => Promise<CodexHookTrustAnswer | null>>()
+  }))
 
 vi.mock('electron', () => ({ app: { getPath: getPathMock } }))
 vi.mock('os', async (importOriginal) => {
@@ -28,8 +29,7 @@ vi.mock('./codex-hook-local-install', () => ({
 // Why: stands in for asking a real Codex for its hook hashes.
 vi.mock('./codex-hook-hash-lookup', async (importOriginal) => ({
   ...(await importOriginal<typeof CodexHookHashLookup>()),
-  resolveCodexHookAnswerForLaunch: async () =>
-    (await import('./hook-service-test-harness')).codexHookAnswerForTests()
+  resolveCodexHookAnswerForLaunch: answerMock
 }))
 vi.mock('./codex-hook-local-maintenance', () => ({
   refreshCodexRuntimeUserHooksExclusively: refreshExclusivelyMock,
@@ -37,6 +37,7 @@ vi.mock('./codex-hook-local-maintenance', () => ({
 }))
 
 import { CodexHookService } from './codex-hook-service-implementation'
+import { codexHookAnswerForTests } from './hook-service-test-harness'
 
 let tmpHome: string
 let userDataDir: string
@@ -67,6 +68,7 @@ beforeEach(() => {
     }
     throw new Error(`unexpected app.getPath(${name})`)
   })
+  answerMock.mockImplementation(async () => codexHookAnswerForTests())
   installExclusivelyMock.mockImplementation(async (runtimeHomePath: string) => {
     await delay(INSTALL_MS)
     return installedStatus(join(runtimeHomePath, 'hooks.json'))
@@ -98,6 +100,24 @@ describe('launch-prep Codex hook install sharing', () => {
     )
 
     expect(statuses.every((status) => status.state === 'installed')).toBe(true)
+    expect(installExclusivelyMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("never joins a Codex launch to a plain terminal's run that went ahead without the answer", async () => {
+    const service = new CodexHookService()
+    const home = join(userDataDir, 'managed')
+    // Why: Codex answers 20 ms in; a plain terminal waits 0 ms, a Codex launch up to 3 s.
+    answerMock.mockImplementation(async (waitMs) => {
+      await delay(Math.min(waitMs, 20))
+      return waitMs > 0 ? codexHookAnswerForTests() : null
+    })
+
+    await Promise.all([
+      service.installForLaunchPrep(home, 0),
+      service.installForLaunchPrep(home, 3_000)
+    ])
+
+    expect(refreshExclusivelyMock).toHaveBeenCalledTimes(1)
     expect(installExclusivelyMock).toHaveBeenCalledTimes(1)
   })
 

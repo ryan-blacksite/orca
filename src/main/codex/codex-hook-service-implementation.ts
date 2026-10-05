@@ -240,15 +240,15 @@ export class CodexHookService {
    * into a time-based cache — the hooks setting, ~/.codex approvals and the
    * managed script can all change between spawns, and only a fresh run sees them.
    */
-  async installForLaunchPrep(
+  installForLaunchPrep(
     runtimeHomePath?: string,
     answerWaitMs = 0
   ): Promise<AgentHookInstallStatus> {
     const homePath = runtimeHomePath ?? getOrcaManagedCodexHomePath()
-    // Why wait before joining: a run a plain terminal started without the answer must not cut a Codex launch's wait short.
-    await resolveCodexHookAnswerForLaunch(answerWaitMs)
-    return dedupeInFlightRun(this.launchPrepInFlight, launchPrepKey('install', homePath), () =>
-      this.install(homePath, 0)
+    // Why a lane per wait: a Codex launch must not join a plain terminal's run that went ahead without Codex's answer.
+    const key = `${launchPrepKey('install', homePath)}${answerWaitMs > 0 ? '\0waits' : ''}`
+    return dedupeInFlightRun(this.launchPrepInFlight, key, () =>
+      this.install(homePath, answerWaitMs)
     )
   }
 
