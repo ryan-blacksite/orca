@@ -54,7 +54,7 @@ export async function readSshDirectoryBounded(
         await requestGitStreamable(
           mux,
           'fs.readDir',
-          { dirPath },
+          { dirPath, ...options },
           {
             maxResponseBytes: 16 * 1024 * 1024
           }

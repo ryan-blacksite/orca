@@ -50,6 +50,18 @@ describe('integrated bounded inventory options', () => {
       __streamResponse: true
     })
   })
+  it('preserves the symlink preference on a legacy relay without SFTP', async () => {
+    const { mux, mock } = muxFixture()
+    mock.request.mockRejectedValueOnce(
+      Object.assign(new Error('Method not found'), { code: -32601 })
+    )
+    await readSshDirectoryBounded(mux, '/root', undefined, { followSymlinks: false })
+    expect(mock.request).toHaveBeenLastCalledWith('fs.readDir', {
+      dirPath: '/root',
+      followSymlinks: false,
+      __streamResponse: true
+    })
+  })
   it('does not probe link targets on either SFTP route when disabled', async () => {
     const { sftp, mock } = sftpFixture()
     expect(await readSftpDirectory(sftp, '/root', { followSymlinks: false })).toEqual([
