@@ -384,8 +384,9 @@ describe('managed-home Codex hook approval', () => {
     expect((await service.install()).state).toBe('installed')
     const before = readFileSync(join(managedHome(), 'hooks.json'), 'utf-8')
     lookupInternals.resetForTesting()
+    // Why a version: the app-server timed out after `codex --version` answered.
     lookupInternals.setHashResolverForTesting(async () => ({
-      codexVersion: null,
+      codexVersion: 'codex-cli 0.160.0',
       hashes: null,
       failure: 'Codex app-server timed out',
       transient: true
@@ -398,5 +399,71 @@ describe('managed-home Codex hook approval', () => {
       readHookTrustEntries(join(managedHome(), 'config.toml')).get(managedKey('stop', 0))
         ?.trustedHash
     ).toBe('sha256:codex-stop')
+  })
+
+  it("keeps a managed home's approved entry when this process may not ask Codex, as in the CLI", async () => {
+    useCodexHashes()
+    const service = new CodexHookService()
+    expect((await service.install()).state).toBe('installed')
+    useAnswer({ codexVersion: null, hashes: null, failure: 'Orca has not asked Codex yet' })
+
+    await service.install()
+
+    expect(
+      readHookTrustEntries(join(managedHome(), 'config.toml')).get(managedKey('stop', 0))
+        ?.trustedHash
+    ).toBe('sha256:codex-stop')
+  })
+
+  it("mirrors the user's Codex settings into a managed home on its first install", async () => {
+    const systemHome = join(homes.tmpHome, '.codex')
+    mkdirSync(systemHome, { recursive: true })
+    writeFileSync(join(systemHome, 'config.toml'), 'model = "user-model"\n')
+    useCodexHashes()
+
+    expect((await new CodexHookService().install()).state).toBe('installed')
+
+    expect(readFileSync(join(managedHome(), 'config.toml'), 'utf-8')).toContain(
+      'model = "user-model"'
+    )
+  })
+
+  it("reports an approval that no longer holds Codex's hash, or that is switched off", async () => {
+    useCodexHashes()
+    const service = new CodexHookService()
+    expect((await service.install()).state).toBe('installed')
+    const stop = {
+      sourcePath: getCodexExplicitHomeHookSourcePath(join(managedHome(), 'hooks.json')),
+      groupIndex: 0,
+      handlerIndex: 0,
+      command: command()
+    }
+    upsertHookTrustEntries(join(managedHome(), 'config.toml'), [
+      { ...stop, eventLabel: 'stop', trustedHash: 'sha256:stale' },
+      {
+        ...stop,
+        eventLabel: 'session_start',
+        trustedHash: CODEX_HASHES.session_start,
+        enabled: false
+      }
+    ])
+
+    expect(service.getStatus()).toMatchObject({
+      state: 'partial',
+      detail: 'Approval missing, stale or disabled for events: SessionStart, Stop'
+    })
+  })
+
+  it('asks Codex afresh once hooks are turned off', async () => {
+    useCodexHashes()
+    const service = new CodexHookService()
+    expect((await service.install()).state).toBe('installed')
+
+    await service.remove()
+
+    expect(service.getStatus()).toMatchObject({
+      state: 'not_installed',
+      detail: 'Orca has not asked Codex yet'
+    })
   })
 })
