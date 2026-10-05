@@ -127,3 +127,56 @@ it('invalidates completed results and errors when the execution owner changes at
   ).toBe('runtime:remote-a')
   hook.unmount()
 })
+
+it('automatically replaces pending root searches and ignores a late old completion', async () => {
+  const signals: AbortSignal[] = []
+  const completions: ((value: SearchResult) => void)[] = []
+  search.mockImplementation((_context, _options, signal: AbortSignal) => {
+    signals.push(signal)
+    return new Promise<SearchResult>((resolve) => completions.push(resolve))
+  })
+  useAppStore.getState().updateFileSearchState('folder:a', { query: 'needle' })
+  const hook = renderHook(() => useFileSearchPanel('search'))
+  await act(async () => vi.advanceTimersByTimeAsync(300))
+  await act(async () =>
+    useAppStore.setState({
+      folderWorkspaces: [makeFolderWorkspace({ id: 'a', folderPath: '/replacement' })]
+    })
+  )
+  expect(signals[0].aborted).toBe(true)
+  await act(async () => vi.advanceTimersByTimeAsync(300))
+  expect(search).toHaveBeenCalledTimes(2)
+  await act(async () => completions[1](empty))
+  const replacementOwner = useAppStore.getState().fileSearchStateByWorktree['folder:a'].resultOwner
+  await act(async () => completions[0]({ ...empty, totalMatches: 99 }))
+  expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].results?.totalMatches).toBe(0)
+  expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].resultOwner).toBe(
+    replacementOwner
+  )
+  hook.unmount()
+})
+
+it('retries a saved failure after its root changes without reusing the old error', async () => {
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+  try {
+    search.mockRejectedValueOnce(new Error('old root unavailable')).mockResolvedValue(empty)
+    useAppStore.getState().updateFileSearchState('folder:a', { query: 'needle' })
+    const hook = renderHook(() => useFileSearchPanel('search'))
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+    expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].error).toBe(
+      'old root unavailable'
+    )
+    await act(async () =>
+      useAppStore.setState({
+        folderWorkspaces: [makeFolderWorkspace({ id: 'a', folderPath: '/replacement' })]
+      })
+    )
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+    expect(search).toHaveBeenCalledTimes(2)
+    expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].error).toBeNull()
+    expect(useAppStore.getState().fileSearchStateByWorktree['folder:a'].results).toEqual(empty)
+    hook.unmount()
+  } finally {
+    log.mockRestore()
+  }
+})
