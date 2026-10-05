@@ -211,6 +211,41 @@ describe('managed-home Codex hook approval', () => {
     ).toBeUndefined()
   })
 
+  it("leaves a user hook's approval in place in an event Codex does not list Orca's entry for", async () => {
+    const systemHome = join(homes.tmpHome, '.codex')
+    mkdirSync(systemHome, { recursive: true })
+    writeFileSync(
+      join(systemHome, 'hooks.json'),
+      JSON.stringify({
+        hooks: { Interrupt: [{ hooks: [{ type: 'command', command: 'user-interrupt.sh' }] }] }
+      })
+    )
+    const userInterrupt = {
+      eventLabel: 'interrupt' as const,
+      groupIndex: 0,
+      handlerIndex: 0,
+      command: 'user-interrupt.sh'
+    }
+    upsertHookTrustEntries(join(systemHome, 'config.toml'), [
+      { ...userInterrupt, sourcePath: join(systemHome, 'hooks.json') }
+    ])
+    // Why: a Codex before 0.150 does not know Interrupt, so Orca's entry does not lead that event.
+    useAnswer({ codexVersion: 'codex-cli 0.149.0', hashes: CODEX_HASHES, failure: null })
+
+    expect((await new CodexHookService().install()).state).toBe('installed')
+
+    const runtimeHooks = JSON.parse(readFileSync(join(managedHome(), 'hooks.json'), 'utf-8')).hooks
+    expect(runtimeHooks.Interrupt).toEqual([
+      { hooks: [{ type: 'command', command: 'user-interrupt.sh' }] }
+    ])
+    const sourcePath = getCodexExplicitHomeHookSourcePath(join(managedHome(), 'hooks.json'))
+    expect(
+      readHookTrustEntries(join(managedHome(), 'config.toml')).get(
+        computeTrustKey({ ...userInterrupt, sourcePath })
+      )?.trustedHash
+    ).toBeDefined()
+  })
+
   it("keeps a managed home's approved entry while Codex is not found", async () => {
     useCodexHashes()
     const service = new CodexHookService()
