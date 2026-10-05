@@ -37,12 +37,16 @@ export function useFileExplorerTreeLoadEffects({
   resetSelection,
   setNameFilterQuery
 }: UseFileExplorerTreeLoadEffectsParams): void {
-  const [staleRefresh, setStaleRefresh] = useState<{
+  const [completedStaleRefreshes, setCompletedStaleRefreshes] = useState(0)
+  const staleRefreshRef = useRef<{
     worktreePath: string
     promise: Promise<unknown>
   } | null>(null)
   useEffect(() => {
-    setStaleRefresh(null)
+    staleRefreshRef.current = null
+    return () => {
+      staleRefreshRef.current = null
+    }
   }, [visibleFilesWorktreePath])
   const followSymlinks = useAppStore((s) => s.settings?.followSymlinkedDirectories ?? false)
   const lastFollowSymlinks = useRef(followSymlinks)
@@ -137,7 +141,7 @@ export function useFileExplorerTreeLoadEffects({
       !visibleFilesWorktreePath ||
       rootError ||
       loadingDirPaths.size > 0 ||
-      staleRefresh?.worktreePath === visibleFilesWorktreePath ||
+      staleRefreshRef.current?.worktreePath === visibleFilesWorktreePath ||
       !Array.from(expanded).some(
         (dirPath) => dirCache[dirPath] && !dirCache[dirPath].error && isDirStale(dirPath)
       )
@@ -146,14 +150,19 @@ export function useFileExplorerTreeLoadEffects({
     }
     // Reopening during an older read must retry after it drains, using the bounded refresh wave.
     const refresh = { worktreePath: visibleFilesWorktreePath, promise: refreshTree() }
-    setStaleRefresh(refresh)
-    const finish = () => setStaleRefresh((current) => (current === refresh ? null : current))
+    staleRefreshRef.current = refresh
+    const finish = () => {
+      if (staleRefreshRef.current === refresh) {
+        staleRefreshRef.current = null
+        setCompletedStaleRefreshes((count) => count + 1)
+      }
+    }
     void refresh.promise.then(finish, finish)
   }, [
     visibleFilesWorktreePath,
     rootError,
     loadingDirPaths,
-    staleRefresh,
+    completedStaleRefreshes,
     expanded,
     dirCache,
     isDirStale,
