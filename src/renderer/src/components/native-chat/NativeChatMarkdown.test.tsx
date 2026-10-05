@@ -21,4 +21,26 @@ describe('chat markdown isolation', () => {
     expect(screen.getByText('Chat message')).toBeInTheDocument()
     expect(screen.getByText('Sidebar comment')).toBeInTheDocument()
   })
+
+  it('scopes word-boundary link wrapping to chat links', () => {
+    render(
+      <>
+        <NativeChatMarkdown
+          content="See [AppearancePane.tsx](https://example.com/chat)"
+          variant="document"
+        />
+        <CommentMarkdown
+          content="See [SidebarPane.tsx](https://example.com/comment)"
+          variant="document"
+        />
+      </>
+    )
+
+    expect(
+      screen.getByRole('link', { name: 'AppearancePane.tsx' }).matches('.native-chat-markdown a')
+    ).toBe(true)
+    expect(
+      screen.getByRole('link', { name: 'SidebarPane.tsx' }).matches('.native-chat-markdown a')
+    ).toBe(false)
+  })
 })
