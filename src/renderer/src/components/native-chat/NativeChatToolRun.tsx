@@ -48,8 +48,7 @@ import { NativeChatToolRunIcon } from './NativeChatToolIcon'
 const NO_SUBAGENT_GROUPS: NativeChatSubagentGroupBlock[] = []
 const NO_BACKGROUND_TASKS: NativeChatBackgroundTaskBlock[] = []
 
-/** A run of a message's tool calls/results, collapsed to a one-line summary that
- *  expands to the individual inline tool lines. */
+/** A run of tool calls/results with a summary that expands to the individual tool lines. */
 export function NativeChatToolRun({
   blocks,
   previousTodoWrite,
@@ -258,26 +257,19 @@ export function NativeChatToolRun({
           {settledHeaderIcon ? (
             <NativeChatToolRunIcon iconName={settledHeaderIcon} className="text-muted-foreground" />
           ) : null}
-          {/* The run in words, in the transcript's own type. Present tense while
-              live, past once settled; the text changes in place and nothing
-              around it moves. While live it keeps its width and the preview
-              beside it is what gives way. */}
+          {/* Wrap the summary in its inherited font; only the latest-call preview may truncate. */}
           <span
             className={cn(
-              'truncate text-sm native-chat-message-text leading-relaxed transition-colors',
+              'min-w-0 whitespace-normal break-words text-sm native-chat-message-text leading-relaxed transition-colors',
               live
                 ? 'max-w-[72%] shrink-0 animate-pulse text-foreground/85 motion-reduce:animate-none'
-                : 'min-w-0 text-muted-foreground group-hover/tool-run:text-foreground/80'
+                : 'text-muted-foreground group-hover/tool-run:text-foreground/80'
             )}
           >
             {runSentence ?? fallbackLabel}
           </span>
           {failedCallCount > 0 ? (
-            /* Outside the truncating member list, so the one thing the reader
-               cannot afford to miss survives a pane too narrow to print it.
-               Quiet text in the header's own type, not a destructive tint or a
-               swapped glyph: a tool error is routine work, and the failing
-               line's own detail is one click away. */
+            /* Keep the failure count visible beside the wrapping summary. */
             <span
               aria-label={translate(
                 'components.native-chat.tool.failedCallsLabel',
