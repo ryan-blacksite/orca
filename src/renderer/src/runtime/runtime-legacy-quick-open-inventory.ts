@@ -1,4 +1,7 @@
-import { decodeLegacyQuickOpenInventory, pruneLegacyInventoryCache } from './runtime-legacy-inventory-budget'
+import {
+  decodeLegacyQuickOpenInventory,
+  pruneLegacyInventoryCache
+} from './runtime-legacy-inventory-budget'
 import { quickOpenRecentCandidateSet } from '../../../shared/quick-open-recent-candidates'
 import type { RuntimeFileListResult } from '../../../shared/runtime-types'
 import {
@@ -95,13 +98,14 @@ async function loadLegacyQuickOpenInventory(
   target: EnvironmentTarget,
   worktreeSelector: string,
   worktreePath: string | null | undefined,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  refreshSettled = false
 ): Promise<RuntimeFileListResult> {
   const key = cacheKey(target, worktreeSelector, worktreePath)
   const now = Date.now()
   const expectedEnvironmentPairingRevision = getRuntimeEnvironmentRevision(target.environmentId)
   const cached = inventoryCache.get(key)
-  if (cached && cached.expiresAt > now) {
+  if (cached && cached.expiresAt > now && !(refreshSettled && cached.settled)) {
     inventoryCache.delete(key)
     inventoryCache.set(key, cached)
     return awaitLegacyInventoryLoad(cached, signal)
@@ -248,7 +252,8 @@ export async function validateLegacyQuickOpenRecentCandidates(args: {
     args.target,
     args.worktreeSelector,
     args.worktreePath,
-    args.signal
+    args.signal,
+    true
   )
   if (result.truncated) {
     throw new Error('Update the remote host to check recent files beyond its inventory limit.')

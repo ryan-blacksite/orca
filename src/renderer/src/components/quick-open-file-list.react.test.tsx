@@ -1,167 +1,33 @@
 // @vitest-environment happy-dom
-
 import { act, createElement } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FolderWorkspace } from '../../../shared/folder-workspace-types'
-import type { ProjectGroup } from '../../../shared/project-group-types'
-import type { Worktree } from '../../../shared/worktree/types'
+import { describe, expect, it, vi } from 'vitest'
 import { folderWorkspaceKey } from '../../../shared/workspace-scope'
 import { QUICK_OPEN_LISTING_MAX_RESULTS } from '../../../shared/quick-open-listing-limits'
 import { useAppStore } from '@/store'
 import type { AppState } from '@/store/types'
-import { useRuntimeFileListForWorktree, type RuntimeFileListState } from './quick-open-file-list'
+import type { RuntimeFileListState } from './quick-open-file-list'
 import { QUICK_OPEN_REMOTE_QUERY_MAX_CODE_UNITS } from './quick-open-search'
+import {
+  listRuntimeFilesMock,
+  cancelRuntimeFileListMock,
+  searchRuntimeFilePathsMock,
+  initialAppState,
+  makeProjectGroup,
+  makeFolderWorkspace,
+  seedRemoteWorktree,
+  HookProbe,
+  flushEffects,
+  waitForListRuntimeFilesCall,
+  renderProbe
+} from './quick-open-file-list-test-harness'
 
-const listRuntimeFilesMock = vi.hoisted(() => vi.fn())
-const cancelRuntimeFileListMock = vi.hoisted(() => vi.fn())
-const searchRuntimeFilePathsMock = vi.hoisted(() => vi.fn())
-
-vi.mock('@/runtime/runtime-file-client', () => ({
-  listRuntimeFiles: listRuntimeFilesMock,
-  cancelRuntimeFileList: cancelRuntimeFileListMock,
-  searchRuntimeFilePaths: searchRuntimeFilePathsMock
-}))
-
-const initialAppState = useAppStore.getInitialState()
-const roots: Root[] = []
-
-function makeProjectGroup(overrides: Partial<ProjectGroup> = {}): ProjectGroup {
+vi.mock('@/runtime/runtime-file-client', async () => {
+  const mocks = await import('./__mocks__/quick-open-runtime-file-client')
   return {
-    id: 'group-1',
-    name: 'Platform',
-    parentPath: '/srv/platform',
-    connectionId: null,
-    parentGroupId: null,
-    createdFrom: 'folder-scan',
-    tabOrder: 0,
-    isCollapsed: false,
-    color: null,
-    createdAt: 1,
-    updatedAt: 1,
-    ...overrides
+    listRuntimeFiles: mocks.listRuntimeFilesMock,
+    cancelRuntimeFileList: mocks.cancelRuntimeFileListMock,
+    searchRuntimeFilePaths: mocks.searchRuntimeFilePathsMock
   }
-}
-
-function makeFolderWorkspace(overrides: Partial<FolderWorkspace> = {}): FolderWorkspace {
-  return {
-    id: 'folder-workspace-1',
-    projectGroupId: 'group-1',
-    name: 'Platform workspace',
-    folderPath: '/srv/platform',
-    connectionId: null,
-    linkedTask: null,
-    comment: '',
-    isArchived: false,
-    isUnread: false,
-    isPinned: false,
-    sortOrder: 1,
-    lastActivityAt: 0,
-    createdAt: 1,
-    updatedAt: 1,
-    ...overrides
-  }
-}
-
-function makeRemoteWorktree(): Worktree {
-  return {
-    id: 'wt-remote',
-    repoId: 'repo-remote',
-    hostId: 'runtime:env-1',
-    runtimeOwnerEnvironmentId: 'env-1',
-    path: '/srv/remote',
-    head: 'abc123',
-    branch: 'refs/heads/main',
-    isBare: false,
-    isMainWorktree: true,
-    displayName: 'Remote',
-    comment: '',
-    linkedIssue: null,
-    linkedPR: null,
-    linkedLinearIssue: null,
-    isArchived: false,
-    isUnread: false,
-    isPinned: false,
-    sortOrder: 0,
-    lastActivityAt: 0
-  }
-}
-
-function seedRemoteWorktree(): void {
-  useAppStore.setState({
-    settings: { ...initialAppState.settings, activeRuntimeEnvironmentId: 'env-1' },
-    repos: [],
-    worktreesByRepo: { 'repo-remote': [makeRemoteWorktree()] }
-  } as Partial<AppState>)
-}
-
-function HookProbe({
-  enabled,
-  onState,
-  query,
-  worktreeId,
-  recentPaths
-}: {
-  enabled: boolean
-  onState: (state: RuntimeFileListState) => void
-  query?: string
-  recentPaths?: readonly string[]
-  worktreeId: string | null
-}): null {
-  onState(useRuntimeFileListForWorktree({ enabled, worktreeId, query, recentPaths }))
-  return null
-}
-
-async function flushEffects(): Promise<void> {
-  await act(async () => {
-    await Promise.resolve()
-    await Promise.resolve()
-  })
-}
-
-async function waitForListRuntimeFilesCall(): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await flushEffects()
-    if (listRuntimeFilesMock.mock.calls.length > 0) {
-      return
-    }
-  }
-  throw new Error('listRuntimeFiles was not called')
-}
-
-async function renderProbe(args: {
-  enabled: boolean
-  onState: (state: RuntimeFileListState) => void
-  query?: string
-  recentPaths?: readonly string[]
-  worktreeId: string | null
-}): Promise<Root> {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const root = createRoot(container)
-  roots.push(root)
-  await act(async () => {
-    root.render(createElement(HookProbe, args))
-  })
-  await flushEffects()
-  return root
-}
-
-beforeEach(() => {
-  useAppStore.setState(initialAppState, true)
-  listRuntimeFilesMock.mockReset().mockResolvedValue(['packages/app/package.json'])
-  cancelRuntimeFileListMock.mockReset()
-  searchRuntimeFilePathsMock.mockReset().mockResolvedValue({ files: [], truncated: false })
-})
-
-afterEach(async () => {
-  for (const root of roots) {
-    await act(async () => {
-      root.unmount()
-    })
-  }
-  roots.length = 0
-  useAppStore.setState(initialAppState, true)
 })
 
 describe('useRuntimeFileListForWorktree', () => {

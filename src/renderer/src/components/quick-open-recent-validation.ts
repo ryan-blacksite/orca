@@ -1,9 +1,21 @@
+import { useEffect, useRef } from 'react'
 import { quickOpenRecentCandidateSet } from '../../../shared/quick-open-recent-candidates'
-import { listRuntimeFiles } from '@/runtime/runtime-file-client'
+import { cancelRuntimeFileList, listRuntimeFiles } from '@/runtime/runtime-file-client'
+import { createBrowserUuid } from '@/lib/browser-uuid'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client-types'
 
-type EligibleRecentResult = { key: string; paths: string[]; error?: string }
-export type QuickOpenRecentCache = { current: EligibleRecentResult | null }
+type EligibleRecentResult = { paths: string[]; error?: string }
+type EligibleRecentRequest = {
+  key: string
+  load: Promise<EligibleRecentResult>
+  dispose: () => void
+}
+export type QuickOpenRecentCache = { current: EligibleRecentRequest | null }
+
+export function clearQuickOpenRecentCache(cache: QuickOpenRecentCache): void {
+  cache.current?.dispose()
+  cache.current = null
+}
 
 export async function mergeQuickOpenRecentCandidates(args: {
   result: { files: string[]; truncated: boolean }
@@ -18,38 +30,71 @@ export async function mergeQuickOpenRecentCandidates(args: {
     return
   }
   const candidates = [...quickOpenRecentCandidateSet(args.candidatePaths)]
-  const available = new Set(args.result.files)
-  if (!args.result.truncated || candidates.every((path) => available.has(path))) {
+  if (candidates.length === 0) {
     return args.result
   }
   if (args.cache.current?.key !== args.key) {
-    try {
-      const paths = await listRuntimeFiles(args.context, {
-        ...args.options,
-        candidatePaths: candidates,
-        maxResults: candidates.length
-      })
-      if (args.cancelled()) {
-        return
-      }
-      const requested = new Set(candidates)
-      args.cache.current = { key: args.key, paths: paths.filter((path) => requested.has(path)) }
-    } catch (error) {
-      if (args.cancelled()) {
-        return
-      }
-      const detail = error instanceof Error ? error.message : String(error)
-      args.cache.current = {
-        key: args.key,
+    clearQuickOpenRecentCache(args.cache)
+    const controller = new AbortController()
+    const requestToken = createBrowserUuid()
+    const requested = new Set(candidates)
+    let settled = false
+    const load = listRuntimeFiles(args.context, {
+      ...args.options,
+      signal: controller.signal,
+      requestToken,
+      candidatePaths: candidates,
+      maxResults: candidates.length
+    })
+      .then((paths) => ({ paths: paths.filter((path) => requested.has(path)) }))
+      .catch((error: unknown) => ({
         paths: [],
-        error: `Recent files could not be checked: ${detail}`
+        error: `Recent files could not be checked: ${error instanceof Error ? error.message : String(error)}`
+      }))
+      .finally(() => {
+        settled = true
+      })
+    args.cache.current = {
+      key: args.key,
+      load,
+      dispose: () => {
+        controller.abort()
+        if (!settled) {
+          cancelRuntimeFileList(args.context, requestToken)
+        }
       }
     }
   }
-  const eligible = args.cache.current
+  const request = args.cache.current
+  const eligible = await request.load
+  if (args.cancelled() || args.cache.current !== request) {
+    return
+  }
+  const requested = new Set(candidates)
+  const allowed = new Set(eligible.paths)
   return {
     ...args.result,
-    files: [...new Set([...args.result.files, ...(eligible?.paths ?? [])])],
-    recentError: eligible?.error
+    files: [
+      ...new Set([
+        ...args.result.files.filter(
+          (path) => eligible.error || !requested.has(path) || allowed.has(path)
+        ),
+        ...eligible.paths
+      ])
+    ],
+    recentError: eligible.error
   }
+}
+
+export function useQuickOpenRecentCache(enabled: boolean, key: string): QuickOpenRecentCache {
+  const cache = useRef<QuickOpenRecentCache['current']>(null)
+  useEffect(() => {
+    clearQuickOpenRecentCache(cache)
+    return () => clearQuickOpenRecentCache(cache)
+  }, [enabled, key])
+  return cache
+}
+
+export async function waitForQuickOpenRecentValidation(cache: QuickOpenRecentCache): Promise<void> {
+  await cache.current?.load
 }

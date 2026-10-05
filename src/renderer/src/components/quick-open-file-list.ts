@@ -9,7 +9,8 @@ export type {
 } from './quick-open-file-list-target'
 import {
   mergeQuickOpenRecentCandidates,
-  type QuickOpenRecentCache
+  waitForQuickOpenRecentValidation,
+  useQuickOpenRecentCache
 } from './quick-open-recent-validation'
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: quick-open file lists are fetched over local or SSH runtime IPC, so loading/error/results track the request lifecycle. */
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -132,7 +133,6 @@ export function useRuntimeFileListForWorktree({
   const includeIgnored = useAppStore((state) => state.settings?.showGitIgnoredFiles ?? true)
   const followSymlinks = useAppStore((state) => state.settings?.followSymlinkedDirectories ?? false)
   const recentKey = JSON.stringify(recentPaths ?? [])
-  const eligibleRecentCache = useRef<QuickOpenRecentCache['current']>(null)
   const listingKey = `${worktreePath ?? ''}\n${operationOwnerKey}\n${excludeRequest.key}\n${includeIgnored}\n${followSymlinks}\n${activeTargetStatus ?? ''}`
   // Why: a capped listing can omit matches, so only then pay for a host scan per query.
   const hostNameFilter =
@@ -144,6 +144,7 @@ export function useRuntimeFileListForWorktree({
       ? splitFileNameFilterTokens(query ?? '').join(' ')
       : ''
   const eligibilityKey = `${listingKey}\n${recentKey}`
+  const eligibleRecentCache = useQuickOpenRecentCache(enabled, eligibilityKey)
   const requestKey = `${listingKey}\n${recentKey}${usesRuntimePathSearch ? `\n${remoteQuery}` : ''}${hostNameFilter ? `\nname-filter\n${hostNameFilter}` : ''}`
   // Why: the render between a request change and the effect that starts the next request must
   // not show the previous listing, so a listing is only visible for the request that produced it.
@@ -159,7 +160,6 @@ export function useRuntimeFileListForWorktree({
 
   useEffect(() => {
     if (!enabled) {
-      eligibleRecentCache.current = null
       setCappedLocalListing(null)
       setLoadingRequest({ requestKey, loading: false })
       setListedOperationOwner({ kind: 'unresolved' })
@@ -214,8 +214,14 @@ export function useRuntimeFileListForWorktree({
         files,
         truncated: files.length >= QUICK_OPEN_LISTING_MAX_RESULTS
       }))
-    const request =
-      usesRuntimePathSearch && remoteQuery.length > 0
+    let requestStarted = false
+    const request = (async () => {
+      await waitForQuickOpenRecentValidation(eligibleRecentCache)
+      if (cancelled) {
+        return undefined
+      }
+      requestStarted = true
+      return usesRuntimePathSearch && remoteQuery.length > 0
         ? debounceRuntimeFileRequest(120, requestAbortController.signal, () =>
             searchRuntimeFilePaths(requestContext, {
               includeIgnored,
@@ -232,25 +238,26 @@ export function useRuntimeFileListForWorktree({
               listFiles(hostNameFilter)
             )
           : listFiles()
+    })()
 
     void request
-      .then((result) =>
-        mergeQuickOpenRecentCandidates({
-          result,
-          candidatePaths: JSON.parse(recentKey),
-          cache: eligibleRecentCache,
-          key: eligibilityKey,
-          context: requestContext,
-          options: {
-            rootPath: worktreePath,
-            includeIgnored,
-            followSymlinks,
-            excludePaths,
-            requestToken,
-            signal: requestAbortController.signal
-          },
-          cancelled: () => cancelled
-        })
+      .then(
+        (result) =>
+          result &&
+          mergeQuickOpenRecentCandidates({
+            result,
+            candidatePaths: JSON.parse(recentKey),
+            cache: eligibleRecentCache,
+            key: eligibilityKey,
+            context: requestContext,
+            options: {
+              rootPath: worktreePath,
+              includeIgnored,
+              followSymlinks,
+              excludePaths
+            },
+            cancelled: () => cancelled
+          })
       )
       .then((result) => {
         if (!result) {
@@ -288,10 +295,13 @@ export function useRuntimeFileListForWorktree({
       // the previous full-tree scan host- and relay-side. Over SSH, abandoned
       // scans otherwise stack up and starve fs.readDir/fs.stat past their
       // 30s timeout ("Could not load files for this workspace").
-      cancelRuntimeFileList(requestContext, requestToken)
+      if (requestStarted) {
+        cancelRuntimeFileList(requestContext, requestToken)
+      }
     }
   }, [
     enabled,
+    eligibleRecentCache,
     recentKey,
     eligibilityKey,
     includeIgnored,

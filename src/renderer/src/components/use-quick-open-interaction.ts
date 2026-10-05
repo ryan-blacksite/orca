@@ -15,14 +15,20 @@ export function useQuickOpenInteraction(worktreeId: string | null): {
   }, [])
   useEffect(() => {
     const currentGeneration = generation.current
+    let rootPath = useAppStore.getState().getKnownWorktreeById(worktreeId ?? '')?.path
     const unsubscribe = useAppStore.subscribe((state, previous) => {
+      const nextRootPath = state.getKnownWorktreeById(worktreeId ?? '')?.path
       if (
+        nextRootPath !== rootPath ||
         state.activeModal !== previous.activeModal ||
         state.activeWorktreeId !== previous.activeWorktreeId ||
         state.activeWorkspaceExecutionHostId !== previous.activeWorkspaceExecutionHostId ||
         ((state.settings !== previous.settings ||
           state.repos !== previous.repos ||
           state.worktreesByRepo !== previous.worktreesByRepo ||
+          state.detectedWorktreesByRepo !== previous.detectedWorktreesByRepo ||
+          state.restoredRuntimeHostIdByWorkspaceSessionKey !==
+            previous.restoredRuntimeHostIdByWorkspaceSessionKey ||
           state.folderWorkspaces !== previous.folderWorkspaces ||
           state.projectGroups !== previous.projectGroups) &&
           JSON.stringify(getFileExplorerOperationOwnerFromState(state, worktreeId)) !==
@@ -30,6 +36,7 @@ export function useQuickOpenInteraction(worktreeId: string | null): {
       ) {
         invalidate()
       }
+      rootPath = nextRootPath
     })
     return () => {
       unsubscribe()

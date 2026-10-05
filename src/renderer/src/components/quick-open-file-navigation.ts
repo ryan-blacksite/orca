@@ -1,3 +1,4 @@
+import { prepareQuickOpenFiles, rankQuickOpenFiles } from '../../../shared/quick-open-path-search'
 import { statUserOpenedPath } from '@/lib/user-opened-local-path'
 import { detectLanguage } from '@/lib/language-detect'
 import { joinPath, getRelativePathInsideRoot } from '@/lib/path'
@@ -50,7 +51,12 @@ export async function openQuickOpenFile(
   const normalizedSelection = selectedPath.replace(/\\/g, '/')
   let literalSelected = Boolean(
     literalQuery &&
-    (normalizedSelection === literalQuery || normalizedSelection.endsWith(`/${literalQuery}`))
+    (normalizedSelection === literalQuery ||
+      normalizedSelection.endsWith(`/${literalQuery}`) ||
+      (navigation.line !== undefined &&
+        normalizedSelection.endsWith(literalQuery.slice(navigation.pathQuery.length)) &&
+        rankQuickOpenFiles(literalQuery, prepareQuickOpenFiles([normalizedSelection]), 1).length >
+          0))
   )
   if (isAbsolute && rawQuery && rawQuery.trim() !== selectedPath && target.kind !== 'environment') {
     try {

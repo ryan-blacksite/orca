@@ -6,7 +6,12 @@ import QuickOpen from './QuickOpen'
 import { TooltipProvider } from './ui/tooltip'
 
 const mocks = vi.hoisted(() => ({ open: vi.fn(), close: vi.fn(), skip: vi.fn() }))
-const state = { activeModal: 'quick-open', activeWorktreeId: 'workspace', closeModal: mocks.close }
+const state = {
+  activeModal: 'quick-open',
+  activeWorktreeId: 'workspace',
+  closeModal: mocks.close,
+  getKnownWorktreeById: () => ({ path: '/workspace' })
+}
 const history: readonly string[] = []
 const files = [
   'apps/api/.env',

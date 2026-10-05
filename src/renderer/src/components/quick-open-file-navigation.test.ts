@@ -286,3 +286,30 @@ it.each(['contained stat', 'external stat'])(
     expect(mocks.reveal).not.toHaveBeenCalled()
   }
 )
+
+for (const query of ['lit:12', 'nest/lit:12', 'literal:12']) {
+  it(`keeps a matching literal suffix for partial query ${query}`, async () => {
+    await openQuickOpenFile(
+      'nested/literal:12',
+      'wt',
+      '/repo',
+      {
+        pathQuery: query.slice(0, -3),
+        line: 12
+      },
+      query
+    )
+    expect(mocks.open).toHaveBeenCalled()
+    expect(mocks.reveal).not.toHaveBeenCalled()
+  })
+}
+it('still reveals the requested line when the selected literal suffix differs', async () => {
+  await openQuickOpenFile(
+    'nested/literal:13',
+    'wt',
+    '/repo',
+    { pathQuery: 'lit', line: 12 },
+    'lit:12'
+  )
+  expect(mocks.reveal).toHaveBeenCalled()
+})
