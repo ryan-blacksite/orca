@@ -48,6 +48,11 @@ vi.mock('./filesystem-auth', () => ({
   resolveAuthorizedPath: resolveAuthorizedPathMock
 }))
 
+vi.mock('./local-file-access-resolution', () => ({
+  resolveDesktopAuthorizedPath: resolveAuthorizedPathMock,
+  resolveLocalFileRequestPath: resolveAuthorizedPathMock
+}))
+
 vi.mock('./filesystem-path-containment', () => ({
   isENOENT: vi.fn(() => false),
   validateGitRelativeFilePath: vi.fn((value: string) => value)

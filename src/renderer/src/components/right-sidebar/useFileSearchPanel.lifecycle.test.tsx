@@ -180,3 +180,34 @@ it('retries a saved failure after its root changes without reusing the old error
     log.mockRestore()
   }
 })
+
+it.each(['root', 'owner'] as const)(
+  'hides stale errors during %s replacement before effects clear them',
+  async (change) => {
+    search.mockRejectedValue(new Error('current failure'))
+    useAppStore.getState().updateFileSearchState('folder:a', { query: 'needle' })
+    const renders: (string | null | undefined)[] = []
+    const hook = renderHook(() => {
+      const panel = useFileSearchPanel('search')
+      renders.push(panel.resultsProps.error)
+      return panel
+    })
+    await act(async () => vi.advanceTimersByTimeAsync(300))
+    expect(hook.result.current.resultsProps.error).toBe('current failure')
+    renders.length = 0
+    await act(async () =>
+      useAppStore.setState({
+        folderWorkspaces: [
+          makeFolderWorkspace({
+            id: 'a',
+            folderPath: change === 'root' ? '/replacement' : '/a',
+            connectionId: change === 'owner' ? 'remote' : null
+          })
+        ]
+      })
+    )
+    expect(renders.length).toBeGreaterThan(0)
+    expect(renders).not.toContain('current failure')
+    hook.unmount()
+  }
+)

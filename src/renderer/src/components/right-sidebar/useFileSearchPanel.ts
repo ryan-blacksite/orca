@@ -310,7 +310,7 @@ export function useFileSearchPanel(explorerView: 'files' | 'search'): FileSearch
     },
     resultsProps: {
       results: deferredResultsAreCurrent ? deferredSearchResults.results : null,
-      error: searchState?.error,
+      error: resultsAreCurrent ? searchState?.error : null,
       hasCommittedResults: resultsAreCurrent && fileSearchResults !== null,
       query: fileSearchQuery,
       loading: fileSearchLoading,

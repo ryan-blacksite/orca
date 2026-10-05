@@ -230,7 +230,8 @@ export async function subscribeRuntimeEnvironment(
         params,
         timeoutMs: effectiveTimeoutMs,
         callbacks,
-        isCurrent
+        isCurrent,
+        signal
       })
     }
     return await subscribeRemoteRuntimeRequest(
