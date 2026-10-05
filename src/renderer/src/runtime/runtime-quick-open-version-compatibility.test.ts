@@ -22,7 +22,17 @@ it('finds the last file beyond 25,000 entries through a version-one inventory fa
       result:
         method === 'files.searchPaths'
           ? { files: [], truncated: false, quickOpenSearchVersion: 1 }
-          : { files, totalCount: files.length, truncated: false }
+          : {
+              worktree: 'id:large-legacy',
+              rootPath: '/host/repo',
+              files: files.map((file) => ({
+                ...file,
+                basename: file.relativePath.split('/').at(-1) ?? '',
+                kind: 'text'
+              })),
+              totalCount: files.length,
+              truncated: false
+            }
     })
   )
   await expect(
@@ -76,7 +86,13 @@ it('validates default-policy recent paths on a version-two host through complete
       result:
         method === 'files.searchPaths'
           ? { files: [], truncated: false, quickOpenSearchVersion: 2 }
-          : { files: [{ relativePath: 'src/recent.ts' }], truncated: false }
+          : {
+              worktree: 'id:recent-legacy',
+              rootPath: '/host/repo',
+              files: [{ relativePath: 'src/recent.ts', basename: 'recent.ts', kind: 'text' }],
+              totalCount: 1,
+              truncated: false
+            }
     })
   )
   await expect(
@@ -133,7 +149,13 @@ it('refuses to infer recent eligibility from a truncated old-host inventory', as
       result:
         method === 'files.searchPaths'
           ? { files: [], truncated: false, quickOpenSearchVersion: 2 }
-          : { files: [], truncated: true }
+          : {
+              worktree: 'id:recent-truncated',
+              rootPath: '/host/repo',
+              files: [],
+              totalCount: 1,
+              truncated: true
+            }
     })
   )
   await expect(
