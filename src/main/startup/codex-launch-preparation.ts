@@ -5,6 +5,7 @@ import { codexHookService } from '../codex/hook-service'
 import { getDefaultWslDistro } from '../wsl'
 import { isAgentStatusHooksEnabledForAgent } from '../agent-hooks/managed-agent-hook-controls'
 import { ensureRealHomeCodexHookState } from '../codex/codex-real-home-hook-install'
+import { CODEX_HOOK_LAUNCH_WAIT_MS } from '../codex/codex-hook-hash-lookup'
 import { mainProcessState as state } from './main-process-state'
 
 export async function prepareCodexRuntimeHomeForLaunch(
@@ -65,7 +66,9 @@ export async function prepareCodexRuntimeHomeForLaunch(
     const status = await codexHookService.prepareRuntimeHomeForLaunch(
       runtimeHomePath,
       hookTarget,
-      hooksEnabled
+      hooksEnabled,
+      // Why only a Codex launch waits for Codex's answer: plain terminals go ahead with what is known.
+      launchContext?.launchesCodex === true ? CODEX_HOOK_LAUNCH_WAIT_MS : 0
     )
     if (status.state === 'error') {
       console.warn(
