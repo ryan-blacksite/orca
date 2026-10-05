@@ -19072,5 +19072,7 @@
       "confirm": "Delete all listed worktrees",
       "preservedBranches": "Some nested worktree branches were kept"
     }
-  }
+  },
+  "settings.appearance.chat.title": "Chat",
+  "settings.appearance.chat.defaultSummary": "14px · Comfortable width"
 }

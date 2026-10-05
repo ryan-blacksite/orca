@@ -18963,5 +18963,7 @@
   },
   "fileSearch": {
     "failed": "검색에 실패했습니다. 다시 시도하세요."
-  }
+  },
+  "settings.appearance.chat.title": "Chat",
+  "settings.appearance.chat.defaultSummary": "14px · Comfortable width"
 }

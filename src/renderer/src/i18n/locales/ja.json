@@ -18963,5 +18963,7 @@
   },
   "fileSearch": {
     "failed": "検索失敗。もう一度お試しください"
-  }
+  },
+  "settings.appearance.chat.title": "Chat",
+  "settings.appearance.chat.defaultSummary": "14px · Comfortable width"
 }
