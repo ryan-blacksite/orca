@@ -1,17 +1,9 @@
 /* Code size is opt-in so monospace metadata retains its existing typography. */
-.native-chat-appearance [data-native-chat-code-content] {
+.native-chat-appearance [data-native-chat-code-content],
+.native-chat-markdown pre {
   font-size: var(--chat-code-font-size, 12px);
 }
 
 .native-chat-message-text {
   font-size: var(--chat-font-size, 14px);
-}
-
-.native-chat-secondary-text {
-  font-size: var(--chat-secondary-font-size, 12px);
-}
-
-.native-chat-markdown {
-  --text-sm: var(--chat-font-size, 14px);
-  --text-xs: var(--chat-secondary-font-size, 12px);
 }
