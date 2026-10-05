@@ -522,6 +522,18 @@ describe('managed-home Codex hook approval', () => {
       expect(stopApproval()).toBe(orcaStop())
     })
 
+    it('reports an entry left without any approval while Codex has not answered', async () => {
+      useAnswer({ codexVersion: null, hashes: null, failure: 'timed out', transient: true })
+      const service = new CodexHookService()
+      await service.install()
+      writeFileSync(join(managedHome(), 'config.toml'), '')
+
+      expect(service.getStatus()).toMatchObject({
+        state: 'partial',
+        detail: "Orca's hook entry is not approved yet (timed out)"
+      })
+    })
+
     it("replaces Orca's hash with Codex's once Codex answers", async () => {
       useAnswer({ codexVersion: null, hashes: null, failure: 'timed out', transient: true })
       const service = new CodexHookService()
