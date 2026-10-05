@@ -257,10 +257,10 @@ export function NativeChatToolRun({
           {settledHeaderIcon ? (
             <NativeChatToolRunIcon iconName={settledHeaderIcon} className="text-muted-foreground" />
           ) : null}
-          {/* Wrap the summary in its inherited font; only the latest-call preview may truncate. */}
+          {/* Keep the collapsed header bounded; the tool detail carries the full command. */}
           <span
             className={cn(
-              'min-w-0 whitespace-normal break-words text-sm native-chat-message-text leading-relaxed transition-colors',
+              'min-w-0 line-clamp-2 whitespace-normal break-words text-sm native-chat-message-text leading-relaxed transition-colors',
               live
                 ? 'max-w-[72%] shrink-0 animate-pulse text-foreground/85 motion-reduce:animate-none'
                 : 'text-muted-foreground group-hover/tool-run:text-foreground/80'

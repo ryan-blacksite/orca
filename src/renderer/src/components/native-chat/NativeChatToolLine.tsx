@@ -18,7 +18,11 @@ import { NativeChatToolIcon } from './NativeChatToolIcon'
 import { NativeChatDiffView } from './NativeChatDiffView'
 import { diffFromText, diffFromToolCall, type DiffLine } from './native-chat-diff'
 import { useNativeChatDisclosure } from './native-chat-disclosure-store'
-import { createToolInputDisplay, truncateToolDetail } from './native-chat-tool-summary'
+import {
+  createToolInputDisplay,
+  formatToolInput,
+  truncateToolDetail
+} from './native-chat-tool-summary'
 
 /** A single inline tool line — `▸ ToolName  preview` — that expands in place to
  *  show the call's diff/input or the result's body. Tool calls read as flat
@@ -53,6 +57,7 @@ export function NativeChatToolLine({
   let detail: string | null = null
   let inputHasDetail = false
   const isCall = isToolCallBlock(block)
+  const command = isCall ? toolInputCommand(block.input) : null
 
   if (isCall) {
     name = block.name
@@ -60,7 +65,12 @@ export function NativeChatToolLine({
     preview = inputDisplay.label
     inputHasDetail = inputDisplay.hasDetail
     diff = expanded ? diffFromToolCall(block.name, block.input) : null
-    detail = expanded && !diff ? inputDisplay.formatDetail() : null
+    detail =
+      expanded && !diff
+        ? command
+          ? formatToolInput(block.input)
+          : inputDisplay.formatDetail()
+        : null
     if (result) {
       body = { output: result.output, isError: result.isError }
     }
@@ -105,9 +115,7 @@ export function NativeChatToolLine({
         {preview ? (
           <span
             className="min-w-0 truncate font-mono text-[11px] text-muted-foreground transition-colors group-hover/tool-line:text-foreground/70"
-            data-native-chat-code-content={
-              isCall && toolInputCommand(block.input) ? true : undefined
-            }
+            data-native-chat-code-content={command ? true : undefined}
             title={preview}
           >
             {preview}
