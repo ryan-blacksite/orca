@@ -303,3 +303,19 @@ it('evaluates all terms up to the existing byte limit and rejects only oversized
     []
   )
 })
+
+it.each([
+  ['abc-', 'abc.ts'],
+  ['bar-', 'foo-bar.ts'],
+  ['product_', 'productdetail.ts']
+])('requires a boundary after a trailing separator in %s', (query, path) => {
+  expect(rankQuickOpenFiles(query, prepareQuickOpenFiles([path]))).toEqual([])
+})
+
+it.each([
+  ['abc-', 'abc-file.ts'],
+  ['product_', 'ProductDetail.ts'],
+  ['http-', 'HTTPServer.ts']
+])('retains real trailing separator boundaries for %s', (query, path) => {
+  expect(rankQuickOpenFiles(query, prepareQuickOpenFiles([path]))).toHaveLength(1)
+})

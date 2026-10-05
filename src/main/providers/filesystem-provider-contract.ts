@@ -115,7 +115,10 @@ export type IFilesystemProvider = {
     rootPath: string,
     options?: { signal?: AbortSignal }
   ): Promise<MarkdownDocument[]>
-  supportsQuickOpenSearch?(options?: { signal?: AbortSignal }): Promise<boolean>
+  supportsQuickOpenSearch?(options?: {
+    signal?: AbortSignal
+    minimumVersion?: number
+  }): Promise<boolean>
   scanWorkspaceSpace?(
     rootPath: string,
     options?: { signal?: AbortSignal }

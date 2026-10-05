@@ -31,14 +31,6 @@ export function matchQuickOpenSeparatorAlternatives(
         current[ti] = Math.min(current[ti], previous[ti] + 2)
       }
     }
-    if (separator && qi === query.length - 1) {
-      for (let index = path.length; index > 0; index--) {
-        if (/[-_ ]/.test(path[index - 1])) {
-          break
-        }
-        current[index] = Math.min(current[index], previous[index] + 2)
-      }
-    }
     ;[previous, current] = [current, previous]
   }
   const score = previous.reduce((best, value) => Math.min(best, value), Infinity)

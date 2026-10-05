@@ -185,11 +185,8 @@ export async function searchRuntimeFilePaths(
   }
   const worktreeSelector = toRuntimeWorktreeSelector(context.worktreeId)
   const limit = args.limit ?? 32
-  if (hasCachedLegacyQuickOpenInventory(target, worktreeSelector, context.worktreePath)) {
-    if (args.includeIgnored === false || args.followSymlinks) {
-      throw new Error('Update the remote host to use Quick Open listing options.')
-    }
-    return searchLegacyQuickOpenInventory({
+  const searchLegacy = () =>
+    searchLegacyQuickOpenInventory({
       target,
       worktreeSelector,
       query: args.query,
@@ -198,6 +195,21 @@ export async function searchRuntimeFilePaths(
       excludePaths: args.excludePaths,
       signal: args.signal
     })
+  const searchLegacyOrRequireUpdate = async () => {
+    try {
+      return await searchLegacy()
+    } catch (error) {
+      if (error instanceof RuntimeRpcCallError && error.code === 'method_not_found') {
+        throw new Error(QUICK_OPEN_REMOTE_UPDATE_REQUIRED_MESSAGE)
+      }
+      throw error
+    }
+  }
+  if (hasCachedLegacyQuickOpenInventory(target, worktreeSelector, context.worktreePath)) {
+    if (args.includeIgnored === false || args.followSymlinks) {
+      throw new Error('Update the remote host to use Quick Open listing options.')
+    }
+    return searchLegacy()
   }
   let result: RuntimeFileListResult
   try {
@@ -220,57 +232,18 @@ export async function searchRuntimeFilePaths(
       if (args.includeIgnored === false || args.followSymlinks) {
         throw new Error('Update the remote host to use Quick Open listing options.')
       }
-      try {
-        return await searchLegacyQuickOpenInventory({
-          target,
-          worktreeSelector,
-          query: args.query,
-          limit,
-          worktreePath: context.worktreePath,
-          excludePaths: args.excludePaths,
-          signal: args.signal
-        })
-      } catch (legacyError) {
-        if (legacyError instanceof RuntimeRpcCallError && legacyError.code === 'method_not_found') {
-          throw new Error(QUICK_OPEN_REMOTE_UPDATE_REQUIRED_MESSAGE)
-        }
-        throw legacyError
-      }
+      return searchLegacyOrRequireUpdate()
     }
     throw error
   }
-  if (
-    (args.includeIgnored === false || args.followSymlinks) &&
-    !(
-      typeof result.quickOpenSearchVersion === 'number' &&
-      result.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
-    )
-  ) {
+  const supportsModernSearch =
+    typeof result.quickOpenSearchVersion === 'number' &&
+    result.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
+  if ((args.includeIgnored === false || args.followSymlinks) && !supportsModernSearch) {
     throw new Error('Update the remote host to use Quick Open listing options.')
   }
-  if (
-    (args.excludePaths?.length || /[\s_-]/.test(args.query.trim())) &&
-    !(
-      typeof result.quickOpenSearchVersion === 'number' &&
-      result.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
-    )
-  ) {
-    try {
-      return await searchLegacyQuickOpenInventory({
-        target,
-        worktreeSelector,
-        query: args.query,
-        limit,
-        worktreePath: context.worktreePath,
-        excludePaths: args.excludePaths,
-        signal: args.signal
-      })
-    } catch (legacyError) {
-      if (legacyError instanceof RuntimeRpcCallError && legacyError.code === 'method_not_found') {
-        throw new Error(QUICK_OPEN_REMOTE_UPDATE_REQUIRED_MESSAGE)
-      }
-      throw legacyError
-    }
+  if ((args.excludePaths?.length || /[\s_-]/.test(args.query.trim())) && !supportsModernSearch) {
+    return searchLegacyOrRequireUpdate()
   }
   const excludePrefixes = buildExcludePathPrefixes(
     context.worktreePath ?? result.rootPath,

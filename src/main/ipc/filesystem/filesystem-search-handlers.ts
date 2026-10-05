@@ -47,7 +47,10 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
             (args.includeIgnored === false ||
               args.followSymlinks ||
               args.candidatePaths !== undefined) &&
-            !(await provider.supportsQuickOpenSearch?.({ signal: controller?.signal }))
+            !(await provider.supportsQuickOpenSearch?.({
+              signal: controller?.signal,
+              minimumVersion: args.candidatePaths !== undefined ? 3 : 2
+            }))
           ) {
             throw new Error('Update the remote host to use Quick Open listing options.')
           }
@@ -55,7 +58,10 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
           if (
             args.searchQuery !== undefined &&
             provider.supportsQuickOpenSearch &&
-            !(await provider.supportsQuickOpenSearch({ signal: controller?.signal }))
+            !(await provider.supportsQuickOpenSearch({
+              signal: controller?.signal,
+              minimumVersion: 1
+            }))
           ) {
             const legacyFiles = await provider.listFiles(args.rootPath, {
               excludePaths: args.excludePaths,
@@ -72,6 +78,17 @@ export function registerFilesystemSearchHandlers(context: FilesystemHandlerConte
               ranker.consider(file)
             }
             return ranker.result().paths
+          }
+          if (
+            args.searchQuery !== undefined &&
+            provider.supportsQuickOpenSearch &&
+            /[\s_-]/.test(args.searchQuery.trim()) &&
+            !(await provider.supportsQuickOpenSearch?.({
+              signal: controller?.signal,
+              minimumVersion: 3
+            }))
+          ) {
+            throw new Error('Update the remote host to use Quick Open matching options.')
           }
           return await provider.listFiles(args.rootPath, {
             candidatePaths: args.candidatePaths,

@@ -222,18 +222,7 @@ export class FsHandler {
       DEFAULT_MAX_RESULTS
     )
 
-    const candidatePaths = params.candidatePaths
-    if (
-      candidatePaths !== undefined &&
-      (!Array.isArray(candidatePaths) ||
-        !candidatePaths.every((path): path is string => typeof path === 'string'))
-    ) {
-      throw new Error('Invalid Quick Open recent candidates.')
-    }
     const options = {
-      ...(candidatePaths === undefined
-        ? {}
-        : { candidatePaths: [...quickOpenRecentCandidateSet(candidatePaths)] }),
       caseSensitive,
       wholeWord,
       useRegex,
@@ -274,7 +263,19 @@ export class FsHandler {
     // don't get double-scanned. The shared helper validates the shape and
     // normalizes into root-relative prefixes; malformed input yields [] so
     // the request still succeeds (older apps omit the field entirely).
+    const candidatePaths = params.candidatePaths
+    if (
+      candidatePaths !== undefined &&
+      (!Array.isArray(candidatePaths) ||
+        !candidatePaths.every((path): path is string => typeof path === 'string'))
+    ) {
+      throw new Error('Invalid Quick Open recent candidates.')
+    }
     const options = {
+      ...(candidatePaths === undefined
+        ? {}
+        : { candidatePaths: [...quickOpenRecentCandidateSet(candidatePaths)] }),
+
       ...(typeof params.includeIgnored === 'boolean'
         ? { includeIgnored: params.includeIgnored }
         : {}),

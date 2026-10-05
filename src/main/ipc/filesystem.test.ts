@@ -567,51 +567,91 @@ describe('registerFilesystemHandlers', () => {
     })
   })
 
-  it('fs:listFiles forwards bounded Quick Open search options to SSH', async () => {
-    const listFilesMock = vi.fn().mockResolvedValue(['src/target.ts'])
-    getSshFilesystemProviderMock.mockReturnValue({ listFiles: listFilesMock })
+  it.each([1, 2, 3, 4])(
+    'keeps plain SSH queries on version %s hosts beyond the prefix limit',
+    async (version) => {
+      const listFilesMock = vi.fn().mockResolvedValue(['src/target.ts'])
+      const supportsQuickOpenSearch = vi.fn(
+        async (options: { minimumVersion?: number }) => version >= (options.minimumVersion ?? 3)
+      )
+      const inventory = [...Array.from({ length: 33 }, (_, i) => `file${i}.ts`), 'src/target.ts']
+      listFilesMock.mockImplementation(async (_root, options) =>
+        options.searchQuery
+          ? inventory.filter((file) => file.includes(options.searchQuery))
+          : inventory.slice(0, options.maxResults)
+      )
+      getSshFilesystemProviderMock.mockReturnValue({
+        listFiles: listFilesMock,
+        supportsQuickOpenSearch
+      })
 
-    registerFilesystemHandlers(store as never)
-
-    await handlers.get('fs:listFiles')!(null, {
-      rootPath: '/home/user/repo',
-      connectionId: 'conn-1',
-      maxResults: 33,
-      searchQuery: 'target'
-    })
-
-    expect(listFilesMock).toHaveBeenCalledWith('/home/user/repo', {
-      excludePaths: undefined,
-      maxResults: 33,
-      searchQuery: 'target'
-    })
-  })
-
-  it('ranks a bounded legacy SSH listing when the relay lacks Quick Open search', async () => {
-    const listFilesMock = vi.fn().mockResolvedValue(['src/target.ts', 'src/index.ts'])
-    const supportsQuickOpenSearchMock = vi.fn().mockResolvedValue(false)
-    getSshFilesystemProviderMock.mockReturnValue({
-      listFiles: listFilesMock,
-      supportsQuickOpenSearch: supportsQuickOpenSearchMock
-    })
-
-    registerFilesystemHandlers(store as never)
-
-    await expect(
-      handlers.get('fs:listFiles')!(null, {
+      registerFilesystemHandlers(store as never)
+      const request = {
         rootPath: '/home/user/repo',
         connectionId: 'conn-1',
-        maxResults: 2,
+        maxResults: 33,
+        searchQuery: 'target'
+      }
+      await expect(handlers.get('fs:listFiles')!(null, request)).resolves.toEqual(['src/target.ts'])
+      expect(listFilesMock).toHaveBeenCalledOnce()
+      expect(supportsQuickOpenSearch).toHaveBeenCalledWith({ signal: undefined, minimumVersion: 1 })
+
+      expect(listFilesMock).toHaveBeenCalledWith('/home/user/repo', {
+        excludePaths: undefined,
+        maxResults: 33,
         searchQuery: 'target'
       })
-    ).resolves.toEqual(['src/target.ts'])
+      for (const options of [
+        { includeIgnored: false },
+        { followSymlinks: true },
+        { candidatePaths: ['src/target.ts'] },
+        { searchQuery: 'tar get' },
+        { searchQuery: 'tar-get' },
+        { searchQuery: 'tar_get' }
+      ]) {
+        listFilesMock.mockClear()
+        const operation = handlers.get('fs:listFiles')!(null, { ...request, ...options })
+        const minimum = 'includeIgnored' in options || 'followSymlinks' in options ? 2 : 3
+        if (version < minimum) {
+          await expect(operation).rejects.toThrow('Update the remote host')
+          expect(listFilesMock).not.toHaveBeenCalled()
+        } else {
+          await operation
+          expect(listFilesMock).toHaveBeenCalledOnce()
+          expect(listFilesMock.mock.calls[0][1]).toMatchObject({ ...options, maxResults: 33 })
+        }
+      }
+    }
+  )
 
-    expect(supportsQuickOpenSearchMock).toHaveBeenCalled()
-    expect(listFilesMock).toHaveBeenCalledWith('/home/user/repo', {
-      excludePaths: undefined,
-      maxResults: 33
-    })
-  })
+  it.each(['target', 'tar get'])(
+    'retains bounded legacy SSH behavior for %s without capabilities',
+    async (query) => {
+      const listFilesMock = vi.fn().mockResolvedValue(['src/target.ts', 'src/index.ts'])
+      const supportsQuickOpenSearchMock = vi.fn().mockResolvedValue(false)
+      getSshFilesystemProviderMock.mockReturnValue({
+        listFiles: listFilesMock,
+        supportsQuickOpenSearch: supportsQuickOpenSearchMock
+      })
+
+      registerFilesystemHandlers(store as never)
+
+      await expect(
+        handlers.get('fs:listFiles')!(null, {
+          rootPath: '/home/user/repo',
+          connectionId: 'conn-1',
+          maxResults: 2,
+          searchQuery: query
+        })
+      ).resolves.toEqual(['src/target.ts'])
+
+      expect(supportsQuickOpenSearchMock).toHaveBeenCalled()
+      expect(listFilesMock).toHaveBeenCalledWith('/home/user/repo', {
+        excludePaths: undefined,
+        maxResults: 33
+      })
+    }
+  )
 
   // Why #7721: without a cancel path, every workspace switch left the previous
   // workspace's full-tree SSH scan running, stacking scans on the relay until

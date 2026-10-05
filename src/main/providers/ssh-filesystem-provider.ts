@@ -319,8 +319,10 @@ export class SshFilesystemProvider implements IFilesystemProvider {
       this.listFiles(rootPath, { maxResults: 20_001, signal: options?.signal })
     )
 
-  supportsQuickOpenSearch = (options: { signal?: AbortSignal } = {}): Promise<boolean> =>
-    probeSshQuickOpenSearchCapability(this.mux, options.signal)
+  supportsQuickOpenSearch = (
+    options: { signal?: AbortSignal; minimumVersion?: number } = {}
+  ): Promise<boolean> =>
+    probeSshQuickOpenSearchCapability(this.mux, options.signal, options.minimumVersion)
   async watch(
     rootPath: string,
     callback: (events: FsChangeEvent[]) => void,

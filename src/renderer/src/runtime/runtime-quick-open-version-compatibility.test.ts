@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { searchRuntimeFilePaths, listRuntimeFiles } from './runtime-file-client'
 import {
   installRuntimeFileClientEnvironment,
@@ -169,4 +169,74 @@ it('refuses to infer recent eligibility from a truncated old-host inventory', as
     )
   ).rejects.toThrow('inventory limit')
   expect(fsListFiles).not.toHaveBeenCalled()
+})
+
+it.each(['missing-search', 'old-search'] as const)(
+  'translates only unavailable inventory errors after %s',
+  async (route) => {
+    const context = {
+      settings: { activeRuntimeEnvironmentId: 'env-1' },
+      worktreeId: 'fallback-errors',
+      worktreePath: '/host/repo'
+    }
+    for (const code of ['method_not_found', 'forbidden', 'remote_runtime_unavailable']) {
+      runtimeEnvironmentCall.mockImplementation(({ method }) =>
+        Promise.resolve({
+          id: 'compat',
+          _meta: { runtimeId: 'host' },
+          ...(method === 'files.searchPaths' && route === 'old-search'
+            ? { ok: true, result: { files: [], truncated: false, quickOpenSearchVersion: 1 } }
+            : {
+                ok: false,
+                error: {
+                  code: method === 'files.searchPaths' ? 'method_not_found' : code,
+                  message: 'inventory failed'
+                }
+              })
+        })
+      )
+      await expect(searchRuntimeFilePaths(context, { query: 'two terms' })).rejects.toThrow(
+        code === 'method_not_found' ? 'Update the remote host' : 'inventory failed'
+      )
+    }
+  }
+)
+
+it('preserves raw errors when joining a cached pending legacy inventory', async () => {
+  const context = {
+    settings: { activeRuntimeEnvironmentId: 'env-1' },
+    worktreeId: 'cached-errors',
+    worktreePath: '/host/repo'
+  }
+  const inventory = Promise.withResolvers<unknown>()
+  runtimeEnvironmentCall.mockImplementation(({ method }) =>
+    method === 'files.list'
+      ? inventory.promise
+      : Promise.resolve({
+          id: 'compat',
+          ok: false,
+          _meta: { runtimeId: 'host' },
+          error: { code: 'method_not_found', message: 'search unavailable' }
+        })
+  )
+  const first = searchRuntimeFilePaths(context, { query: 'two terms' })
+  const translated = expect(first).rejects.toThrow('Update the remote host')
+  await vi.waitFor(() =>
+    expect(runtimeEnvironmentCall.mock.calls.map(([request]) => request.method)).toContain(
+      'files.list'
+    )
+  )
+  const cached = searchRuntimeFilePaths(context, { query: 'other terms' })
+  const raw = expect(cached).rejects.toThrow('raw cached failure')
+  inventory.resolve({
+    id: 'compat',
+    ok: false,
+    _meta: { runtimeId: 'host' },
+    error: { code: 'method_not_found', message: 'raw cached failure' }
+  })
+  await Promise.all([translated, raw])
+  expect(runtimeEnvironmentCall.mock.calls.map(([request]) => request.method)).toEqual([
+    'files.searchPaths',
+    'files.list'
+  ])
 })

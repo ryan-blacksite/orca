@@ -197,11 +197,7 @@ function fuzzyMatchIndexedFile(
           ti = alternate
         }
       }
-      if (
-        lastMatchIdx >= 0 &&
-        ((ti !== next && identifierBoundaries.get(file)?.has(next)) ||
-          (ti === -1 && qi === query.length - 1))
-      ) {
+      if (lastMatchIdx >= 0 && ti !== next && identifierBoundaries.get(file)?.has(next)) {
         score += 2
         qi++
         continue

@@ -48,12 +48,13 @@ function readSshFsCapabilities(
 
 export function probeSshQuickOpenSearchCapability(
   mux: SshChannelMultiplexer,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  minimumVersion = QUICK_OPEN_SEARCH_VERSION
 ): Promise<boolean> {
   return readSshFsCapabilities(mux, signal).then(
     (capabilities) =>
       typeof capabilities?.quickOpenSearchVersion === 'number' &&
-      capabilities.quickOpenSearchVersion >= QUICK_OPEN_SEARCH_VERSION
+      capabilities.quickOpenSearchVersion >= minimumVersion
   )
 }
 
