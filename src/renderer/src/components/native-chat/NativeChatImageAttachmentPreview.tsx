@@ -77,7 +77,7 @@ export function NativeChatImageAttachmentPreview({
           aria-busy={isPending}
           title={label}
           onClick={() => setIsOpen(true)}
-          className="flex size-full items-center justify-center overflow-hidden rounded-md border border-border bg-background transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex size-full items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {thumbnailSrc ? (
             <img
@@ -90,7 +90,7 @@ export function NativeChatImageAttachmentPreview({
           )}
         </button>
         {isPending ? (
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-background/50">
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-chat-canvas/50">
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
           </span>
         ) : null}
@@ -101,7 +101,7 @@ export function NativeChatImageAttachmentPreview({
             'components.native-chat.composer.removeAttachment',
             'Remove attachment'
           )}
-          className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full border border-border bg-chat-canvas text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="size-3" />
         </button>

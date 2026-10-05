@@ -211,7 +211,7 @@ describe('what a user message says about its delivery', () => {
 
     const sending = screen.getByText('Sending…')
     const copy = screen.getByRole('button', { name: 'Copy message' })
-    expect(sending).toHaveClass('text-xs', 'text-muted-foreground')
+    expect(sending).toHaveClass('text-xs', 'text-chat-foreground-faint')
     expect(Array.from(sending.parentElement!.children)).toEqual([copy, sending])
     expect(sending.parentElement).not.toHaveClass('can-hover:opacity-0')
     expect(sending.parentElement!.parentElement).toHaveClass('group')

@@ -108,7 +108,7 @@ export function stubLayout({
         }
         // The transcript column: as tall as the window it wraps, plus what sits
         // under it. This is the element the list observes for streamed growth.
-        return this.classList.contains('max-w-4xl')
+        return this.classList.contains('max-w-(--chat-content-max-width)')
           ? reservedTranscriptHeight(this) + belowTranscriptPx
           : 0
       }
