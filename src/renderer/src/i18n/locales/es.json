@@ -80,8 +80,9 @@
         "preview": "Vista previa",
         "previewSample": {
           "question": "¿Por qué `pnpm dev` se cierra justo después de iniciarse en Windows?",
-          "explanation": "Usa Node en lugar de una sintaxis de shell **exclusiva de Unix**.",
-          "followUp": "Después, ejecuta `pnpm dev` de nuevo. Ningún otro script usa la forma anterior."
+          "explanation": "Usa Node, no sintaxis **exclusiva de Unix**.",
+          "toolSummary": "Se buscó 1 patrón y se leyó 1 archivo",
+          "followUp": "Después, ejecuta `pnpm dev` de nuevo."
         }
       }
     },

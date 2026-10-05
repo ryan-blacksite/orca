@@ -63,6 +63,7 @@ export function NativeChatToolRun({
   activeTurnIsWorking,
   trailing,
   expandOverride,
+  summaryOverride,
   disclosureId,
   onLinkClick
 }: {
@@ -82,6 +83,8 @@ export function NativeChatToolRun({
   expandSignal: boolean
   /** Optional external control for callers that intentionally own this run's disclosure. */
   expandOverride?: boolean
+  /** Inert samples can name their fixed activity without changing live-chat copy. */
+  summaryOverride?: string
   /** Structured lifecycle state, when available, keeps orphaned running calls from spinning. */
   activeTurnIsWorking?: boolean
   /** Whether this run is the working turn's last. Only that run is live: a run
@@ -266,7 +269,7 @@ export function NativeChatToolRun({
                 : 'text-muted-foreground group-hover/tool-run:text-foreground/80'
             )}
           >
-            {runSentence ?? fallbackLabel}
+            {summaryOverride ?? runSentence ?? fallbackLabel}
           </span>
           {failedCallCount > 0 ? (
             /* Keep the failure count visible beside the wrapping summary. */

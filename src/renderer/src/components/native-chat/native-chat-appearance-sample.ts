@@ -28,19 +28,11 @@ export function createNativeChatAppearanceSample(language: string): NativeChatMe
       blocks: [
         {
           type: 'text',
-          text: [
-            '```json',
-            '"scripts": {',
-            '  "dev": "node --env-file=.env.development scripts/dev.mjs"',
-            '}',
-            '```',
-            '',
-            translate(
-              'settings.appearance.chat.previewSample.explanation',
-              'Use Node instead of **Unix-only** shell syntax.',
-              { lng: language }
-            )
-          ].join('\n')
+          text: translate(
+            'settings.appearance.chat.previewSample.explanation',
+            'Use Node instead of **Unix-only** syntax.',
+            { lng: language }
+          )
         }
       ]
     },
@@ -72,11 +64,19 @@ export function createNativeChatAppearanceSample(language: string): NativeChatMe
       blocks: [
         {
           type: 'text',
-          text: translate(
-            'settings.appearance.chat.previewSample.followUp',
-            'Then run `pnpm dev` again. No other script uses the old form.',
-            { lng: language }
-          )
+          text: [
+            '```json',
+            '"scripts": {',
+            '  "dev": "node --env-file=.env.development scripts/dev.mjs"',
+            '}',
+            '```',
+            '',
+            translate(
+              'settings.appearance.chat.previewSample.followUp',
+              'Then run `pnpm dev` again.',
+              { lng: language }
+            )
+          ].join('\n')
         }
       ]
     }

@@ -38,7 +38,7 @@ export function NativeChatAppearancePreview({
         data-native-chat-appearance-preview
         className={cn(
           NATIVE_CHAT_APPEARANCE_ROOT_CLASS,
-          'h-[380px] overflow-hidden text-chat-foreground'
+          'h-[440px] overflow-hidden text-chat-foreground'
         )}
         style={appearanceStyle}
         inert
@@ -48,8 +48,8 @@ export function NativeChatAppearancePreview({
         onContextMenuCapture={blockPreviewInteraction}
       >
         <NativeChatDisclosureContext.Provider value={null}>
-          <div className={NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS}>
-            <div className={NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS}>
+          <div className={cn(NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS, 'py-3')}>
+            <div className={cn(NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS, 'gap-2')}>
               {messages.map((message, index) => (
                 <Fragment key={message.id}>
                   {index === 1 ? (
@@ -64,6 +64,11 @@ export function NativeChatAppearancePreview({
                     message={message}
                     expandSignal={false}
                     toolRunExpandOverride
+                    toolRunSummaryOverride={translate(
+                      'settings.appearance.chat.previewSample.toolSummary',
+                      'Searched 1 pattern, read 1 file'
+                    )}
+                    hideUserMeta
                     onScrollMessageToTop={ignorePreviewAction}
                   />
                 </Fragment>
