@@ -46,7 +46,17 @@ export async function readSshDirectoryBounded(
       if (fallback) {
         return fallback()
       }
-      throw new Error('Directory listing requires an updated SSH relay. Reconnect and retry.')
+      // Old hosts allocate before replying; bound transport retention and validate the complete result.
+      return validateDirectoryListing(
+        await requestGitStreamable(
+          mux,
+          'fs.readDir',
+          { dirPath },
+          {
+            maxResponseBytes: 16 * 1024 * 1024
+          }
+        )
+      )
     }
     throw error
   }
