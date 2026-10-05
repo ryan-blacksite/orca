@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
 import { NativeChatAppearancePreview } from './NativeChatAppearancePreview'
 import { NativeChatDisclosureContext } from './native-chat-disclosure-store'
+import {
+  NATIVE_CHAT_APPEARANCE_ROOT_CLASS,
+  NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS,
+  NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS
+} from './native-chat-appearance-style'
 
 const surroundingDisclosureStore = { read: vi.fn(), write: vi.fn() }
 
@@ -44,6 +49,19 @@ describe('NativeChatAppearancePreview', () => {
     )
     expect(screen.getByText(/No other script uses the old form/)).toBeInTheDocument()
     expect(previewRoot(container)).toHaveClass('h-[380px]', 'overflow-hidden')
+    expect(previewRoot(container)).toHaveClass(NATIVE_CHAT_APPEARANCE_ROOT_CLASS)
+    const outer = previewRoot(container).firstElementChild
+    expect(outer).toHaveClass(NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS)
+    expect(outer?.firstElementChild).toHaveClass(NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS)
+    expect(screen.getByText('Worked for 12s').closest('button')).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    const code = container.querySelector('[data-native-chat-code-content]')
+    const tools = container.querySelector('[data-native-chat-tool-run-state]')
+    expect(
+      code && tools && code.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 
   it('updates the shared chat styling when text size, code size and width change', () => {
@@ -72,7 +90,6 @@ describe('NativeChatAppearancePreview', () => {
       />
     )
     expect(root.style.getPropertyValue('--chat-content-max-width')).toBe('none')
-    expect(root.scrollTop).toBe(0)
   })
 
   it('blocks sample controls without IPC or reads and writes to a surrounding session disclosure store', () => {

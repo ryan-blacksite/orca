@@ -1,10 +1,16 @@
 import { Fragment, type SyntheticEvent } from 'react'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { translate } from '@/i18n/i18n'
+import { cn } from '@/lib/utils'
 import { MessageRow } from './NativeChatMessageRow'
 import { NativeChatWorkingStatus } from './NativeChatWorkingStatus'
 import { NativeChatDisclosureContext } from './native-chat-disclosure-store'
-import { nativeChatAppearanceStyle } from './native-chat-appearance-style'
+import {
+  NATIVE_CHAT_APPEARANCE_ROOT_CLASS,
+  NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS,
+  NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS,
+  useNativeChatAppearanceStyle
+} from './native-chat-appearance-style'
 import { NATIVE_CHAT_APPEARANCE_SAMPLE } from './native-chat-appearance-sample'
 
 function blockPreviewInteraction(event: SyntheticEvent): void {
@@ -12,13 +18,14 @@ function blockPreviewInteraction(event: SyntheticEvent): void {
   event.stopPropagation()
 }
 
-function ignoreScroll(): void {}
+function ignorePreviewAction(): void {}
 
 export function NativeChatAppearancePreview({
   settings
 }: {
   settings: GlobalSettings
 }): React.JSX.Element {
+  const appearanceStyle = useNativeChatAppearanceStyle(settings)
   return (
     <div className="my-3 overflow-hidden rounded-xl border border-border/50">
       <div className="border-b border-border/50 bg-background px-3 py-1.5 text-[11px] text-muted-foreground">
@@ -26,8 +33,11 @@ export function NativeChatAppearancePreview({
       </div>
       <div
         data-native-chat-appearance-preview
-        className="native-chat-appearance h-[380px] overflow-hidden bg-chat-canvas text-chat-foreground"
-        style={nativeChatAppearanceStyle(settings)}
+        className={cn(
+          NATIVE_CHAT_APPEARANCE_ROOT_CLASS,
+          'h-[380px] overflow-hidden text-chat-foreground'
+        )}
+        style={appearanceStyle}
         inert
         onClickCapture={blockPreviewInteraction}
         onAuxClickCapture={blockPreviewInteraction}
@@ -35,24 +45,27 @@ export function NativeChatAppearancePreview({
         onContextMenuCapture={blockPreviewInteraction}
       >
         <NativeChatDisclosureContext.Provider value={null}>
-          <div className="mx-auto flex w-full max-w-[var(--chat-content-max-width)] flex-col gap-5 p-4">
-            {NATIVE_CHAT_APPEARANCE_SAMPLE.map((message, index) => (
-              <Fragment key={message.id}>
-                {index === 1 ? (
-                  <NativeChatWorkingStatus
-                    startedAt={null}
-                    workedSeconds={12}
-                    onToggleExpanded={ignoreScroll}
+          <div className={NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS}>
+            <div className={NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS}>
+              {NATIVE_CHAT_APPEARANCE_SAMPLE.map((message, index) => (
+                <Fragment key={message.id}>
+                  {index === 1 ? (
+                    <NativeChatWorkingStatus
+                      startedAt={null}
+                      workedSeconds={12}
+                      expanded
+                      onToggleExpanded={ignorePreviewAction}
+                    />
+                  ) : null}
+                  <MessageRow
+                    message={message}
+                    expandSignal={false}
+                    toolRunExpandOverride
+                    onScrollMessageToTop={ignorePreviewAction}
                   />
-                ) : null}
-                <MessageRow
-                  message={message}
-                  expandSignal={false}
-                  toolRunExpandOverride
-                  onScrollMessageToTop={ignoreScroll}
-                />
-              </Fragment>
-            ))}
+                </Fragment>
+              ))}
+            </div>
           </div>
         </NativeChatDisclosureContext.Provider>
       </div>

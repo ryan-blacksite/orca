@@ -22,7 +22,15 @@ export const NATIVE_CHAT_APPEARANCE_SAMPLE: NativeChatMessage[] = [
     blocks: [
       {
         type: 'text',
-        text: 'The dev script starts the server with a **Unix-only** shell line, so on Windows the child process fails and the parent exits with it.'
+        text: [
+          '```json',
+          '"scripts": {',
+          '  "dev": "node --env-file=.env.development scripts/dev.mjs"',
+          '}',
+          '```',
+          '',
+          'Use Node instead of **Unix-only** shell syntax.'
+        ].join('\n')
       }
     ]
   },
@@ -54,17 +62,7 @@ export const NATIVE_CHAT_APPEARANCE_SAMPLE: NativeChatMessage[] = [
     blocks: [
       {
         type: 'text',
-        text: [
-          'Set the variable through Node instead of the shell, so it works everywhere:',
-          '',
-          '```json',
-          '"scripts": {',
-          '  "dev": "node --env-file=.env.development scripts/dev.mjs"',
-          '}',
-          '```',
-          '',
-          'Then run `pnpm dev` again. No other script uses the old form.'
-        ].join('\n')
+        text: 'Then run `pnpm dev` again. No other script uses the old form.'
       }
     ]
   }
