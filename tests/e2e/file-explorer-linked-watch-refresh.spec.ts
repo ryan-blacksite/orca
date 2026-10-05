@@ -60,6 +60,12 @@ test('refreshes followed directory links after target changes and retargeting', 
       await row('nested').click()
     }
     await expect(row('replacement-linked.txt')).toBeVisible()
+
+    await rm(replacement, { recursive: true })
+    await expect(row('replacement-linked.txt')).toHaveCount(0)
+    await mkdir(path.join(replacement, 'nested'), { recursive: true })
+    await writeFile(path.join(replacement, 'nested', 'restored-linked.txt'), 'restored target')
+    await expect(row('restored-linked.txt')).toBeVisible()
   } finally {
     await rm(alias, { force: true })
     await rm(target, { recursive: true, force: true })

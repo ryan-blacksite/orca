@@ -56,11 +56,7 @@ function hasCachedDirectoryLink(
 ): boolean {
   for (const dirPath of pathIndex.values()) {
     for (const child of cache[dirPath].children) {
-      if (
-        child.isSymlink &&
-        child.isDirectory &&
-        pathIndex.has(normalizeRuntimePathForComparison(child.path))
-      ) {
+      if (child.isSymlink && pathIndex.has(normalizeRuntimePathForComparison(child.path))) {
         return true
       }
     }
