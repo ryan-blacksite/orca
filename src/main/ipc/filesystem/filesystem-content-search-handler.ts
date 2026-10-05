@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import type { ChildProcess } from 'node:child_process'
+import type { ChildProcessHandle } from '../../../shared/child-process/process-spec'
 import type { SearchOptions, SearchResult } from '../../../shared/code-search-types'
 import { RipgrepSearchDiagnostics } from '../../../shared/ripgrep-search-diagnostics'
 import { SearchSubprocessLineAccumulator } from '../../../shared/search-subprocess-lines'
@@ -88,7 +88,7 @@ export function registerFilesystemContentSearchHandler(context: FilesystemHandle
           let resolved = false
           let processErrorObserved = false
           let unavailableExitObserved = false
-          let child: ChildProcess | null = null
+          let child: ChildProcessHandle | null = null
           let killTimeout: ReturnType<typeof setTimeout>
 
           const transformAbsPath = wslDistroForOutput
