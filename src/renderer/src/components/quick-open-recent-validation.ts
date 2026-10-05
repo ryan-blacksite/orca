@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { quickOpenRecentCandidateSet } from '../../../shared/quick-open-recent-candidates'
 import { cancelRuntimeFileList, listRuntimeFiles } from '@/runtime/runtime-file-client'
 import { createBrowserUuid } from '@/lib/browser-uuid'
+import { translate } from '@/i18n/i18n'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client-types'
 
 type EligibleRecentResult = { paths: string[]; error?: string }
@@ -49,7 +50,13 @@ export async function mergeQuickOpenRecentCandidates(args: {
       .then((paths) => ({ paths: paths.filter((path) => requested.has(path)) }))
       .catch((error: unknown) => ({
         paths: [],
-        error: `Recent files could not be checked: ${error instanceof Error ? error.message : String(error)}`
+        error: translate(
+          'quickOpen.recentValidationFailed',
+          'Recent files could not be checked: {{error}}',
+          {
+            error: error instanceof Error ? error.message : String(error)
+          }
+        )
       }))
       .finally(() => {
         settled = true

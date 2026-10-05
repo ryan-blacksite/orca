@@ -249,6 +249,12 @@
         "description": "Shows a notice on a Codex you started yourself when it shares a server with other tabs, because its agent status may be wrong."
       }
     },
+    "followSymlinkedDirectoriesKeywords": {
+      "symlink": "symlink",
+      "linkedFolder": "linked folder",
+      "quickOpen": "quick open",
+      "fileExplorer": "file explorer"
+    },
     "followSymlinkedDirectories": "Follow symlinked directories",
     "followSymlinkedDirectoriesDescription": "Include linked folders in Quick Open and File Explorer. May request filesystem permissions."
   },
@@ -18673,7 +18679,8 @@
     }
   },
   "quickOpen": {
-    "moreMatchesAvailable": "More matches may be available. Refine your search to narrow the results."
+    "moreMatchesAvailable": "More matches may be available. Refine your search to narrow the results.",
+    "recentValidationFailed": "Recent files could not be checked: {{error}}"
   },
   "checksPanel": {
     "unlinked": {

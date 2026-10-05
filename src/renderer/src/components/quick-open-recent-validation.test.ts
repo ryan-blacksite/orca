@@ -92,5 +92,5 @@ it('cancels eligibility on owner/root changes while preserving ordinary search o
     cancelled: () => false
   })
   expect(result?.files).toEqual(['recent.ts', 'ordinary.ts'])
-  expect(result?.recentError).toContain('Update host')
+  expect(result?.recentError).toBe('Recent files could not be checked: Update host')
 })

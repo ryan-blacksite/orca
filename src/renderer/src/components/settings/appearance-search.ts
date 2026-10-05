@@ -123,7 +123,21 @@ export const getFollowSymlinkedDirectoriesEntry = (): SettingsSearchEntry => ({
     'settings.followSymlinkedDirectoriesDescription',
     'Include linked folders in Quick Open and File Explorer. May request filesystem permissions.'
   ),
-  keywords: ['symlink', 'linked folder', 'quick open', 'file explorer']
+  keywords: [
+    ...translateSearchKeyword('settings.followSymlinkedDirectoriesKeywords.symlink', 'symlink'),
+    ...translateSearchKeyword(
+      'settings.followSymlinkedDirectoriesKeywords.linkedFolder',
+      'linked folder'
+    ),
+    ...translateSearchKeyword(
+      'settings.followSymlinkedDirectoriesKeywords.quickOpen',
+      'quick open'
+    ),
+    ...translateSearchKeyword(
+      'settings.followSymlinkedDirectoriesKeywords.fileExplorer',
+      'file explorer'
+    )
+  ]
 })
 
 export const getLayoutEntries = createLocalizedCatalog((): SettingsSearchEntry[] => [
