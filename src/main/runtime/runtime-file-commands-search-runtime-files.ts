@@ -66,10 +66,19 @@ export class RuntimeFileCommandsWithSearchRuntimeFiles extends RuntimeFileComman
         options.maxResults ??
         (options.maxContentBytes === undefined ? undefined : QUICK_OPEN_LISTING_MAX_RESULTS)
       if (
-        options.candidatePaths !== undefined &&
-        !(await provider.supportsQuickOpenSearch?.({ signal: options.signal }))
+        (options.candidatePaths !== undefined ||
+          options.includeIgnored === false ||
+          options.followSymlinks) &&
+        !(await provider.supportsQuickOpenSearch?.({
+          signal: options.signal,
+          minimumVersion: options.candidatePaths !== undefined ? 3 : 2
+        }))
       ) {
-        throw new Error('Update the remote host to validate Quick Open recent files.')
+        throw new Error(
+          options.candidatePaths !== undefined
+            ? 'Update the remote host to validate Quick Open recent files.'
+            : 'Update the remote host to use Quick Open listing options.'
+        )
       }
       const files = await provider.listFiles(target.worktree.path, {
         excludePaths: options.excludePaths,

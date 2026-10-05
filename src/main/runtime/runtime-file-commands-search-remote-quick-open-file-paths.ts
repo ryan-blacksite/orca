@@ -22,10 +22,13 @@ export class RuntimeFileCommandsWithSearchRemoteQuickOpenFilePaths extends Runti
     if (!provider) {
       return { paths: [], totalCount: 0, truncated: false }
     }
-    if (!(await provider.supportsQuickOpenSearch?.({ signal }))) {
-      if (options.includeIgnored === false || options.followSymlinks) {
-        throw new Error('Update the remote host to use Quick Open listing options.')
-      }
+    if (
+      (options.includeIgnored === false || options.followSymlinks) &&
+      !(await provider.supportsQuickOpenSearch?.({ signal, minimumVersion: 2 }))
+    ) {
+      throw new Error('Update the remote host to use Quick Open listing options.')
+    }
+    if (!(await provider.supportsQuickOpenSearch?.({ signal, minimumVersion: 1 }))) {
       // Old relays ignore searchQuery. Keep the compatibility request below the
       // 4 MiB frame ceiling even when legacy paths are near the 64 KiB path cap.
       const legacyFiles = await provider.listFiles(rootPath, {
@@ -43,6 +46,12 @@ export class RuntimeFileCommandsWithSearchRemoteQuickOpenFilePaths extends Runti
         truncated:
           legacyFiles.length >= QUICK_OPEN_LEGACY_REMOTE_RESULT_LIMIT || result.totalCount > limit
       }
+    }
+    if (
+      /[\s_-]/.test(query.trim()) &&
+      !(await provider.supportsQuickOpenSearch?.({ signal, minimumVersion: 3 }))
+    ) {
+      throw new Error('Update the remote host to use Quick Open matching options.')
     }
     const files = await provider.listFiles(rootPath, {
       excludePaths,
