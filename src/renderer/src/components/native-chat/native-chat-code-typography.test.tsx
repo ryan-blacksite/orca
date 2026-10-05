@@ -23,8 +23,8 @@ describe('chat code typography opt-in', () => {
     const { container } = render(
       <NativeChatToolRun
         blocks={[
-          { type: 'tool-call', id: 'shell', name: 'Bash', input: { command: 'git status' } },
-          { type: 'tool-result', toolCallId: 'shell', output: 'working tree clean' }
+          { type: 'tool-call', callId: 'shell', name: 'Bash', input: { command: 'git status' } },
+          { type: 'tool-result', callId: 'shell', output: 'working tree clean' }
         ]}
         expandSignal
         activeTurnIsWorking
