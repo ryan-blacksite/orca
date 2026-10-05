@@ -10,6 +10,7 @@ import {
 import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
 import {
   computeTrustKey,
+  computeTrustedHash,
   getCodexExplicitHomeHookSourcePath,
   readHookTrustEntries,
   upsertHookTrustEntries,
@@ -241,4 +242,30 @@ export function readApprovedManagedOrcaHashes(runtimeHomePath: string): CodexHoo
     }
   }
   return Object.keys(hashes).length > 0 ? hashes : null
+}
+
+/**
+ * Orca's own hash of its entry in every managed event, as main wrote before
+ * asking Codex: the stopgap while Codex has not answered. Codex's answer
+ * replaces it at the next install.
+ */
+export function computeOrcaCodexHookHashes(
+  command: string = getManagedCommand(getManagedScriptPath())
+): CodexHookHashes {
+  return Object.fromEntries(
+    CODEX_EVENTS.map((eventName) => {
+      const eventLabel = CODEX_EVENT_LABEL[eventName]
+      return [
+        eventLabel,
+        computeTrustedHash({
+          sourcePath: '',
+          eventLabel,
+          groupIndex: 0,
+          handlerIndex: 0,
+          command,
+          timeoutSec: buildCodexManagedHook(command, eventName).timeout
+        })
+      ]
+    })
+  )
 }

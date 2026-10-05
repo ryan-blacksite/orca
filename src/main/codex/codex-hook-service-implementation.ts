@@ -7,6 +7,7 @@ import { refreshManagedScriptIfPresent } from '../agent-hooks/managed-hook-scrip
 import { getOrcaManagedCodexHomePath } from './codex-home-paths'
 import { getManagedScriptPath } from './codex-hook-definition'
 import {
+  computeOrcaCodexHookHashes,
   installCodexHooksExclusively,
   readApprovedManagedOrcaHashes
 } from './codex-hook-local-install'
@@ -210,13 +211,14 @@ export class CodexHookService {
   ): Promise<AgentHookInstallStatus> {
     const answer = await resolveCodexHookAnswerForLaunch(answerWaitMs)
     return runExclusivelyForRuntimeAndSystemTrustConfig(runtimeHomePath, () => {
-      // Why fall back to the home's own approvals: an answer still on its way, a
-      // timeout or a codex not found yet must not strip an entry that works.
+      // Why fall back to the home's own approvals, then Orca's own hash (main's fallback):
+      // an answer still on its way, a timeout or a codex not found yet must never leave
+      // a managed home worse than main. Codex's answer, once it comes, always wins.
       const hashes =
         answer?.hashes ??
         (isDefinitiveCodexHookAnswer(answer)
           ? null
-          : readApprovedManagedOrcaHashes(runtimeHomePath))
+          : (readApprovedManagedOrcaHashes(runtimeHomePath) ?? computeOrcaCodexHookHashes()))
       if (!hashes) {
         // Why: without Codex's hash an entry would wait for review; the home keeps only the user's hooks.
         return this.refreshRuntimeUserHooksExclusively(runtimeHomePath, answer)

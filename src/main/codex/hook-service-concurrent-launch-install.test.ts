@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as CodexHookHashLookup from './codex-hook-hash-lookup'
+import type * as CodexHookLocalInstall from './codex-hook-local-install'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import type * as Os from 'node:os'
@@ -7,12 +8,16 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
 import type { CodexHookTrustAnswer } from './codex-hook-trust-memo'
+import type { CodexHookHashes } from './codex-hook-trust-derivation'
 
 const { getPathMock, homedirMock, installExclusivelyMock, refreshExclusivelyMock, answerMock } =
   vi.hoisted(() => ({
     getPathMock: vi.fn<(name: string) => string>(),
     homedirMock: vi.fn<() => string>(),
-    installExclusivelyMock: vi.fn<(runtimeHomePath: string) => Promise<AgentHookInstallStatus>>(),
+    installExclusivelyMock:
+      vi.fn<
+        (runtimeHomePath: string, hashes: CodexHookHashes) => Promise<AgentHookInstallStatus>
+      >(),
     refreshExclusivelyMock: vi.fn<(runtimeHomePath: string) => Promise<AgentHookInstallStatus>>(),
     answerMock: vi.fn<(waitMs: number) => Promise<CodexHookTrustAnswer | null>>()
   }))
@@ -22,7 +27,8 @@ vi.mock('os', async (importOriginal) => {
   const actual = await importOriginal<typeof Os>()
   return { ...actual, homedir: homedirMock }
 })
-vi.mock('./codex-hook-local-install', () => ({
+vi.mock('./codex-hook-local-install', async (importOriginal) => ({
+  ...(await importOriginal<typeof CodexHookLocalInstall>()),
   installCodexHooksExclusively: installExclusivelyMock,
   readApprovedManagedOrcaHashes: () => null
 }))
@@ -107,9 +113,12 @@ describe('launch-prep Codex hook install sharing', () => {
     const service = new CodexHookService()
     const home = join(userDataDir, 'managed')
     // Why: Codex answers 20 ms in; a plain terminal waits 0 ms, a Codex launch up to 3 s.
+    const codexHashes = { stop: 'sha256:from-codex' }
     answerMock.mockImplementation(async (waitMs) => {
       await delay(Math.min(waitMs, 20))
-      return waitMs > 0 ? codexHookAnswerForTests() : null
+      return waitMs > 0
+        ? { codexVersion: 'codex-cli 0.160.1', hashes: codexHashes, failure: null }
+        : null
     })
 
     await Promise.all([
@@ -117,8 +126,10 @@ describe('launch-prep Codex hook install sharing', () => {
       service.installForLaunchPrep(home, 3_000)
     ])
 
-    expect(refreshExclusivelyMock).toHaveBeenCalledTimes(1)
-    expect(installExclusivelyMock).toHaveBeenCalledTimes(1)
+    // Why: the plain terminal goes ahead on Orca's own hash; the Codex launch still gets Codex's.
+    expect(installExclusivelyMock.mock.calls.map(([, hashes]) => hashes)).toContainEqual(
+      codexHashes
+    )
   })
 
   it('re-installs for a launch that starts after the shared run settled', async () => {

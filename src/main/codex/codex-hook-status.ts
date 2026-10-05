@@ -15,6 +15,7 @@ import {
   getManagedScriptPath
 } from './codex-hook-definition'
 import type { CodexHookTrustAnswer } from './codex-hook-trust-memo'
+import { isDefinitiveCodexHookAnswer } from './codex-hook-hash-lookup'
 
 /**
  * Codex hook status for a managed home, read from its files: Orca's entry in
@@ -48,14 +49,17 @@ export function readCodexHookHomeStatus(
     })
   )
   if (!answer?.hashes) {
-    // Why read the file first: an entry approved earlier still works while Codex is re-asked.
-    return slots.size > 0
-      ? status(
-          'partial',
-          true,
-          `Orca's hook entry is installed; its approval is not verified yet (${answer?.failure ?? 'Orca has not asked Codex yet'})`
-        )
-      : status('not_installed', false, answer?.failure ?? 'Orca has not asked Codex yet')
+    const reason = answer?.failure ?? 'Orca has not asked Codex yet'
+    if (slots.size === 0) {
+      return status('not_installed', false, reason)
+    }
+    if (isDefinitiveCodexHookAnswer(answer)) {
+      return status('partial', true, `Orca's hook entry is installed, but ${reason}`)
+    }
+    // Why not an error: until Codex answers, the approval is the home's earlier one or Orca's own hash.
+    return readsApprovedSlots(runtimeHomePath, slots, command)
+      ? status('installed', true, `Approved by Orca; not yet confirmed by Codex (${reason})`)
+      : status('partial', true, `Orca's hook entry is not approved yet (${reason})`)
   }
   // Why: an unreadable config.toml is distinct from an absent one (an empty map).
   let trustStates: ReadonlyMap<string, CodexHookTrustState>
@@ -109,4 +113,29 @@ export function readCodexHookHomeStatus(
   return parts.length === 0
     ? status('installed', true, null)
     : status('partial', true, parts.join('; '))
+}
+
+function readsApprovedSlots(
+  runtimeHomePath: string,
+  slots: ReadonlyMap<string, { groupIndex: number; handlerIndex: number }>,
+  command: string
+): boolean {
+  let trustStates: ReadonlyMap<string, CodexHookTrustState>
+  try {
+    trustStates = readHookTrustEntries(getCodexConfigTomlPath(runtimeHomePath))
+  } catch {
+    return false
+  }
+  const sourcePath = getCodexExplicitHomeHookSourcePath(getConfigPath(runtimeHomePath))
+  return [...slots].every(([eventName, slot]) => {
+    const state = trustStates.get(
+      computeTrustKey({
+        sourcePath,
+        eventLabel: CODEX_EVENT_LABEL[eventName],
+        command,
+        ...slot
+      })
+    )
+    return Boolean(state?.trustedHash) && state?.enabled !== false
+  })
 }

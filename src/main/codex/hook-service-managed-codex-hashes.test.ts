@@ -33,6 +33,7 @@ vi.mock('../agent-hooks/installer-utils', async (importOriginal) => {
 
 import { CodexHookService } from './hook-service'
 import { _internals as lookupInternals } from './codex-hook-hash-lookup'
+import { computeOrcaCodexHookHashes } from './codex-hook-local-install'
 import { fingerprintCodex, memoizeCodexHookTrust } from './codex-hook-trust-memo'
 import type { CodexHookTrustAnswer } from './codex-hook-trust-memo'
 import {
@@ -268,8 +269,8 @@ describe('managed-home Codex hook approval', () => {
         ?.trustedHash
     ).toBe('sha256:codex-stop')
     expect(status).toMatchObject({
-      state: 'partial',
-      detail: expect.stringContaining('could not find Codex')
+      state: 'installed',
+      detail: expect.stringContaining('Approved by Orca; not yet confirmed by Codex')
     })
   })
 
@@ -476,6 +477,87 @@ describe('managed-home Codex hook approval', () => {
     expect(service.getStatus()).toMatchObject({
       state: 'not_installed',
       detail: 'Orca has not asked Codex yet'
+    })
+  })
+
+  describe("Orca's own hash until Codex answers, as main wrote it", () => {
+    const orcaStop = (): string | undefined => computeOrcaCodexHookHashes().stop ?? undefined
+
+    function stopApproval(): string | undefined {
+      return readHookTrustEntries(join(managedHome(), 'config.toml')).get(managedKey('stop', 0))
+        ?.trustedHash
+    }
+
+    it("approves a fresh home with Orca's hash when Codex answers after the launch's wait", async () => {
+      lookupInternals.setHashResolverForTesting(() => new Promise(() => {}))
+
+      const status = await new CodexHookService().install(undefined, 10)
+
+      const runtimeHooks = JSON.parse(
+        readFileSync(join(managedHome(), 'hooks.json'), 'utf-8')
+      ).hooks
+      expect(isCodexManagedCommand(runtimeHooks.Stop[0].hooks[0].command)).toBe(true)
+      expect(
+        readHookTrustEntries(join(managedHome(), 'config.toml')).get(managedKey('stop', 0))
+      ).toEqual({
+        trustedHash: orcaStop(),
+        enabled: true
+      })
+      expect(status).toMatchObject({
+        state: 'installed',
+        detail: 'Approved by Orca; not yet confirmed by Codex (Orca has not asked Codex yet)'
+      })
+    })
+
+    it("approves a fresh home with Orca's hash while Codex is not found", async () => {
+      useAnswer({
+        codexVersion: null,
+        hashes: null,
+        failure: 'Orca could not find Codex at codex',
+        transient: true
+      })
+
+      expect((await new CodexHookService().install()).state).toBe('installed')
+
+      expect(stopApproval()).toBe(orcaStop())
+    })
+
+    it("replaces Orca's hash with Codex's once Codex answers", async () => {
+      useAnswer({ codexVersion: null, hashes: null, failure: 'timed out', transient: true })
+      const service = new CodexHookService()
+      await service.install()
+      expect(stopApproval()).toBe(orcaStop())
+
+      useCodexHashes()
+      expect((await service.install()).state).toBe('installed')
+
+      expect(stopApproval()).toBe('sha256:codex-stop')
+    })
+
+    it('uses no fallback when Codex answered that it has no hooks/list', async () => {
+      useAnswer({
+        codexVersion: 'codex-cli 0.127.0',
+        hashes: null,
+        failure: 'Codex 0.127.0 is too old for Orca status; update Codex'
+      })
+
+      const status = await new CodexHookService().install()
+
+      expect(stopApproval()).toBeUndefined()
+      expect(readFileSync(join(managedHome(), 'hooks.json'), 'utf-8')).not.toContain('codex-hook')
+      expect(status).toMatchObject({
+        state: 'not_installed',
+        detail: expect.stringContaining('update Codex')
+      })
+    })
+
+    it("approves with Orca's hash in a process that may not ask Codex, as the offline CLI is", async () => {
+      // Why reset: no resolver stub and no permission to ask, as in the CLI's process.
+      lookupInternals.resetForTesting()
+
+      expect((await new CodexHookService().install(undefined, 0)).state).toBe('installed')
+
+      expect(stopApproval()).toBe(orcaStop())
     })
   })
 })

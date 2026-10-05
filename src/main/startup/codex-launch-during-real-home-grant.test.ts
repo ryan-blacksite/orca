@@ -326,10 +326,10 @@ describe('a Codex launch while the real-home approval hangs', () => {
       }
       expect(settled).toBe(true)
       expect(await launched).toBe(getOrcaManagedCodexHomePath())
-      // Why: with no answer and nothing approved yet, the home gets no unapproved entry.
-      expect(
-        readFileSync(join(getOrcaManagedCodexHomePath(), 'hooks.json'), 'utf-8')
-      ).not.toContain('codex-hook')
+      // Why: with no answer and nothing approved yet, the home gets Orca's own hash, as on main.
+      expect(readFileSync(join(getOrcaManagedCodexHomePath(), 'hooks.json'), 'utf-8')).toContain(
+        'codex-hook'
+      )
     } finally {
       release()
       await vi.advanceTimersByTimeAsync(60_000)

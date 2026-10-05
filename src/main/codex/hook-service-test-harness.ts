@@ -4,19 +4,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createManagedCommandMatcher } from '../agent-hooks/installer-utils'
 import {
-  computeTrustedHash,
   getCodexExplicitHomeHookSourcePath,
   normalizeCodexHookSourcePath
 } from './config-toml-trust'
 import { _internals as grantInternals } from './codex-hook-trust-grant'
 import { _internals as lookupInternals } from './codex-hook-hash-lookup'
-import {
-  buildCodexManagedHook,
-  CODEX_EVENTS,
-  CODEX_EVENT_LABEL,
-  getManagedCommand,
-  getManagedScriptPath
-} from './codex-hook-definition'
+import { getManagedCommand, getManagedScriptPath } from './codex-hook-definition'
+import { computeOrcaCodexHookHashes } from './codex-hook-local-install'
 import type { CodexHookHashes } from './codex-hook-trust-derivation'
 import type { CodexHookTrustAnswer } from './codex-hook-trust-memo'
 
@@ -38,23 +32,7 @@ export type CodexHookHomes = {
 export function computeCodexHookHashesForTests(
   command: string = getManagedCommand(getManagedScriptPath())
 ): CodexHookHashes {
-  return Object.fromEntries(
-    CODEX_EVENTS.map((eventName) => {
-      const eventLabel = CODEX_EVENT_LABEL[eventName]
-      const timeoutSec = buildCodexManagedHook(command, eventName).timeout
-      return [
-        eventLabel,
-        computeTrustedHash({
-          sourcePath: '',
-          eventLabel,
-          groupIndex: 0,
-          handlerIndex: 0,
-          command,
-          timeoutSec
-        })
-      ]
-    })
-  )
+  return computeOrcaCodexHookHashes(command)
 }
 
 /** The answer a real Codex gives about Orca's entry. */
