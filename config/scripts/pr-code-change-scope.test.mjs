@@ -166,8 +166,12 @@ describe('per-job path classification', () => {
         package_windows: true
       })
     }
-    // Keep the real-binary gate live when a transport or launch dependency changes.
+    // Keep the real-binary gate live when a transport, launch or hook-approval dependency changes.
     for (const file of [
+      'src/main/codex/codex-hook-trust-derivation.ts',
+      'src/main/codex/codex-hook-local-install.ts',
+      'src/main/codex/config-toml-hook-trust-edit.ts',
+      'src/main/codex-cli/codex-read-only-app-server-args.ts',
       'src/main/codex/codex-app-server-capability-signal.ts',
       'src/main/provider-process/provider-process-exit-deadline.ts',
       'src/main/provider-process/provider-process-launch.ts',

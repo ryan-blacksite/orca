@@ -64,4 +64,27 @@ describe('Codex index-heal contract PR gate', () => {
     )
     expect(verify.run).toContain('src/main/agent-trust-presets.test.ts')
   })
+
+  it('runs the hook file-entry contract on both pins and latest, failing when a binary is missing', () => {
+    const pinned = job.steps.find(
+      (step) => step.name === 'Verify Codex hook file-entry contract (pinned)'
+    )
+    const latest = job.steps.find(
+      (step) => step.name === 'Verify Codex hook file-entry contract (latest)'
+    )
+    const installLatest = job.steps.find((step) => step.name === 'Install latest Codex CLI')
+
+    for (const verify of [pinned, latest]) {
+      expect(verify.env.ORCA_CODEX_HOOK_CONTRACT_REQUIRED).toBe('1')
+      expect(verify.run).toContain('set -euo pipefail')
+      expect(verify.run).toContain('src/main/codex/codex-hook-file-entry-binary-contract.test.ts')
+    }
+    expect(pinned.run).toContain('codex-cli:"$CODEX_CLI_VERSION"')
+    expect(pinned.run).toContain('codex-cli-no-daemon:"$CODEX_NO_DAEMON_CLI_VERSION"')
+    expect(pinned.run).toContain('ORCA_CODEX_HOOK_CONTRACT_VERSION="${install#*:}"')
+    expect(installLatest.run).toContain('--prefix "$RUNNER_TEMP/codex-cli-latest"')
+    expect(latest.run).toContain(
+      'ORCA_CODEX_HOOK_CONTRACT_BINARY="$RUNNER_TEMP/codex-cli-latest/node_modules/.bin/codex"'
+    )
+  })
 })
