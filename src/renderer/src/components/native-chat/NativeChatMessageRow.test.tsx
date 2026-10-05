@@ -131,6 +131,20 @@ describe('MessageRow control visibility', () => {
     expect(screen.queryByRole('time')).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
   })
+
+  it.each(['reasoning', 'system'] as const)(
+    'keeps %s rows upright and scopes their faint text',
+    (role) => {
+      const { container } = renderMessage(role)
+      const row = container.querySelector('[data-native-chat-message-tone="faint"]')
+      expect(row).toHaveClass('text-chat-foreground-faint')
+      expect(row).not.toHaveClass('italic')
+      expect(row).toContainElement(screen.getByText('Message text'))
+      if (role === 'reasoning') {
+        expect(row).toHaveClass('border-l-2')
+      }
+    }
+  )
 })
 
 describe('MessageRow send mode', () => {

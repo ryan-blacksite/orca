@@ -1,6 +1,7 @@
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react'
 import type { CommentMarkdownLinkClickHandler } from '@/components/sidebar/CommentMarkdown'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
+import { NativeChatCodeBlock } from './NativeChatCodeBlock'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
@@ -76,6 +77,7 @@ export function NativeChatNoticeRow({
           <NativeChatMarkdown
             content={block.text}
             variant="document"
+            renderCodeBlock={NativeChatCodeBlock}
             className="text-sm text-chat-foreground"
             onLinkClick={onLinkClick}
             allowFileUriLinks={allowFileUriLinks}

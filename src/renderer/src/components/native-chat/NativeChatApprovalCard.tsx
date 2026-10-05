@@ -175,7 +175,7 @@ export function NativeChatApprovalCard({
                   'rounded-md px-4 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
                   i === 0
                     ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'border border-border bg-chat-canvas text-foreground hover:bg-accent'
+                    : 'border border-border bg-background text-foreground hover:bg-accent'
                 )}
               >
                 {opt.label}

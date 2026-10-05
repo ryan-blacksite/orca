@@ -49,6 +49,7 @@
   --color-chat-foreground-faint: var(--chat-foreground-faint);
   --color-chat-user-surface: var(--chat-user-surface);
   --color-chat-user-border: var(--chat-user-border);
+  --color-chat-code-foreground: var(--chat-code-foreground);
   --color-chat-code-surface: var(--chat-code-surface);
   --color-chat-code-border: var(--chat-code-border);
   --color-chat-inline-code-surface: var(--chat-inline-code-surface);
@@ -178,6 +179,7 @@
   --chat-foreground-faint: var(--muted-foreground);
   --chat-user-surface: color-mix(in srgb, var(--foreground) 4%, var(--chat-canvas));
   --chat-user-border: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --chat-code-foreground: color-mix(in srgb, var(--foreground) 85%, var(--chat-canvas));
   --chat-code-surface: color-mix(in srgb, var(--foreground) 2%, var(--chat-canvas));
   --chat-code-border: color-mix(in srgb, var(--foreground) 7%, transparent);
   --chat-inline-code-surface: color-mix(in srgb, var(--foreground) 4%, var(--chat-canvas));
@@ -314,6 +316,7 @@
   --chat-foreground-faint: color-mix(in srgb, var(--muted-foreground) 83%, var(--chat-canvas));
   --chat-user-surface: color-mix(in srgb, var(--foreground) 7%, var(--chat-canvas));
   --chat-user-border: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --chat-code-foreground: color-mix(in srgb, var(--foreground) 85%, var(--chat-canvas));
   --chat-code-surface: color-mix(in srgb, var(--foreground) 3.5%, transparent);
   --chat-code-border: color-mix(in srgb, var(--foreground) 7%, transparent);
   --chat-inline-code-surface: color-mix(in srgb, var(--foreground) 6%, transparent);

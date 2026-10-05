@@ -17,7 +17,7 @@ export function NativeChatCodeBlock({
   return (
     <div className="group/code relative my-3 min-w-0 max-w-full overflow-hidden rounded-lg border border-chat-code-border bg-chat-code-surface">
       {language ? (
-        <div className="flex h-9 items-center justify-between px-3">
+        <div className="flex h-7.5 items-center justify-between px-3">
           <span
             data-code-language={language}
             className="min-w-0 font-sans text-xs text-chat-foreground-faint"
@@ -36,8 +36,8 @@ export function NativeChatCodeBlock({
       <pre
         data-native-chat-code-content
         className={cn(
-          'scrollbar-sleek m-0 max-h-80 max-w-full overflow-x-auto p-3 font-mono text-[12px] text-chat-foreground-strong',
-          !language && 'pr-10'
+          'scrollbar-sleek m-0 max-h-80 max-w-full overflow-x-auto font-mono text-[12px] text-chat-code-foreground',
+          language ? 'px-3.5 pt-0.5 pb-3' : 'p-3 pr-10'
         )}
       >
         {children}

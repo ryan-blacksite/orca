@@ -421,7 +421,7 @@ describe('NativeChatMessageList childless spawn group', () => {
 
   /** Every slot the transcript column lays out — one per row that mounted. */
   function emptySlots(container: HTMLElement): Element[] {
-    const column = container.querySelector('[class~="max-w-(--chat-content-max-width)"]')
+    const column = container.querySelector('[data-native-chat-transcript-column]')
     expect(column).not.toBeNull()
     return Array.from(column!.children).filter((slot) => slot.textContent === '')
   }

@@ -388,6 +388,7 @@ export function NativeChatMessageList({
             <div className="px-3 pt-10 pb-4 sm:px-4">
               <div
                 ref={contentRef}
+                data-native-chat-transcript-column
                 // Why: matches composer width with 5px horizontal inset
                 // on each side so content is slightly narrower than the input box.
                 className="mx-auto flex w-full max-w-(--chat-content-max-width) flex-col gap-5 px-[5px]"
