@@ -265,22 +265,25 @@ describe('AppearancePane', () => {
     expect(summary).not.toContain('Contrast')
   })
 
-  it('mounts the chat preview only while the Chat card is open', async () => {
+  it('keeps the chat preview mounted when the Chat card collapses and reopens', async () => {
     mocks.state.settingsSearchQuery = ''
     const container = await renderAppearancePane(getDefaultSettings('/tmp'))
     const chatToggle = appearanceSectionToggle(container, 'chat')
-    expect(container.querySelector('[data-native-chat-appearance-preview]')).not.toBeNull()
+    const preview = container.querySelector('[data-native-chat-appearance-preview]')
+    expect(preview).not.toBeNull()
 
     await act(async () => {
       chatToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
     expect(chatToggle?.getAttribute('aria-expanded')).toBe('false')
-    expect(container.querySelector('[data-native-chat-appearance-preview]')).toBeNull()
+    expect(container.querySelector('[data-native-chat-appearance-preview]')).toBe(preview)
+    expect(preview?.closest('[aria-hidden="true"]')?.hasAttribute('inert')).toBe(true)
 
     await act(async () => {
       chatToggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
-    expect(container.querySelector('[data-native-chat-appearance-preview]')).not.toBeNull()
+    expect(container.querySelector('[data-native-chat-appearance-preview]')).toBe(preview)
+    expect(preview?.closest('[aria-hidden="true"]')).toBeNull()
   })
 
   it('shows language as a primary interface control without opening Advanced', async () => {

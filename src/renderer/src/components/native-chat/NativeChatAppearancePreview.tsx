@@ -1,4 +1,5 @@
-import { Fragment, type SyntheticEvent } from 'react'
+import { Fragment, useMemo, type SyntheticEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
@@ -11,7 +12,7 @@ import {
   NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS,
   useNativeChatAppearanceStyle
 } from './native-chat-appearance-style'
-import { NATIVE_CHAT_APPEARANCE_SAMPLE } from './native-chat-appearance-sample'
+import { createNativeChatAppearanceSample } from './native-chat-appearance-sample'
 
 function blockPreviewInteraction(event: SyntheticEvent): void {
   event.preventDefault()
@@ -26,6 +27,8 @@ export function NativeChatAppearancePreview({
   settings: GlobalSettings
 }): React.JSX.Element {
   const appearanceStyle = useNativeChatAppearanceStyle(settings)
+  const { i18n } = useTranslation()
+  const messages = useMemo(() => createNativeChatAppearanceSample(i18n.language), [i18n.language])
   return (
     <div className="my-3 overflow-hidden rounded-xl border border-border/50">
       <div className="border-b border-border/50 bg-background px-3 py-1.5 text-[11px] text-muted-foreground">
@@ -47,7 +50,7 @@ export function NativeChatAppearancePreview({
         <NativeChatDisclosureContext.Provider value={null}>
           <div className={NATIVE_CHAT_TRANSCRIPT_OUTER_CLASS}>
             <div className={NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS}>
-              {NATIVE_CHAT_APPEARANCE_SAMPLE.map((message, index) => (
+              {messages.map((message, index) => (
                 <Fragment key={message.id}>
                   {index === 1 ? (
                     <NativeChatWorkingStatus

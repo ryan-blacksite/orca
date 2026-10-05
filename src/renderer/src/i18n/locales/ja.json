@@ -77,7 +77,12 @@
         "sharper": "くっきり",
         "terminalInterfaceSummary": "ターミナルの外観",
         "contrastSummary": "コントラスト {{value0}}",
-        "preview": "プレビュー"
+        "preview": "プレビュー",
+        "previewSample": {
+          "question": "Windows で `pnpm dev` が起動直後に終了するのはなぜですか？",
+          "explanation": "**Unix 専用**のシェル構文の代わりに Node を使います。",
+          "followUp": "その後、`pnpm dev` を再実行してください。他のスクリプトでは以前の形式は使われていません。"
+        }
       }
     },
     "browser": {

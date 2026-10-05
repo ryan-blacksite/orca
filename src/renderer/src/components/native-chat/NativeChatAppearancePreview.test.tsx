@@ -1,8 +1,14 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
+import { i18n } from '@/i18n/i18n'
+import es from '@/i18n/locales/es.json'
+import fr from '@/i18n/locales/fr.json'
+import ja from '@/i18n/locales/ja.json'
+import ko from '@/i18n/locales/ko.json'
+import zh from '@/i18n/locales/zh.json'
 import { NativeChatAppearancePreview } from './NativeChatAppearancePreview'
 import { NativeChatDisclosureContext } from './native-chat-disclosure-store'
 import {
@@ -19,9 +25,10 @@ vi.mock('@/store', () => ({
   }
 }))
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
   vi.unstubAllGlobals()
+  await i18n.changeLanguage('en')
 })
 
 function previewRoot(container: HTMLElement): HTMLElement {
@@ -33,6 +40,29 @@ function previewRoot(container: HTMLElement): HTMLElement {
 }
 
 describe('NativeChatAppearancePreview', () => {
+  it.each(Object.entries({ es, fr, ja, ko, zh }))(
+    'updates the mounted sample prose to %s while preserving literal code and file names',
+    async (locale, catalog) => {
+      const { container } = render(
+        <NativeChatAppearancePreview settings={getDefaultSettings('/tmp')} />
+      )
+      await act(async () => {
+        await i18n.changeLanguage(locale)
+      })
+      const sample = catalog.settings.appearance.chat.previewSample
+      for (const prose of Object.values(sample)) {
+        expect(container).toHaveTextContent(prose.replace(/`|\*\*/g, ''))
+      }
+      expect(container).not.toHaveTextContent('Use Node instead of Unix-only shell syntax.')
+      expect(container).toHaveTextContent('NODE_ENV=')
+      expect(container).toHaveTextContent('scripts/')
+      expect(container).toHaveTextContent('package.json')
+      expect(container.querySelector('[data-native-chat-code-content]')).toHaveTextContent(
+        'node --env-file=.env.development scripts/dev.mjs'
+      )
+    }
+  )
+
   it('renders real message, tool and code rows without a session or renderer bridge', () => {
     vi.stubGlobal('api', undefined)
     const { container } = render(

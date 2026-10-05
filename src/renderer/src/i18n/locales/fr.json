@@ -176,7 +176,12 @@
         "sharper": "Plus net",
         "terminalInterfaceSummary": "Interface du terminal",
         "contrastSummary": "Contraste {{value0}}",
-        "preview": "Aperçu"
+        "preview": "Aperçu",
+        "previewSample": {
+          "question": "Pourquoi `pnpm dev` se ferme-t-il juste après son démarrage sous Windows ?",
+          "explanation": "Utilisez Node plutôt qu’une syntaxe de shell **propre à Unix**.",
+          "followUp": "Puis relancez `pnpm dev`. Aucun autre script n’utilise l’ancienne forme."
+        }
       }
     },
     "browser": {

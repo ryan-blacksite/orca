@@ -77,7 +77,12 @@
         "sharper": "更清晰",
         "terminalInterfaceSummary": "终端外观",
         "contrastSummary": "对比度 {{value0}}",
-        "preview": "预览"
+        "preview": "预览",
+        "previewSample": {
+          "question": "为什么 `pnpm dev` 在 Windows 上刚启动就退出了？",
+          "explanation": "使用 Node，而不是 **Unix 专用**的 Shell 语法。",
+          "followUp": "然后再次运行 `pnpm dev`。其他脚本都没有使用旧的写法。"
+        }
       }
     },
     "browser": {

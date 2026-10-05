@@ -77,7 +77,12 @@
         "sharper": "Más nítido",
         "terminalInterfaceSummary": "Interfaz del terminal",
         "contrastSummary": "Contraste {{value0}}",
-        "preview": "Vista previa"
+        "preview": "Vista previa",
+        "previewSample": {
+          "question": "¿Por qué `pnpm dev` se cierra justo después de iniciarse en Windows?",
+          "explanation": "Usa Node en lugar de una sintaxis de shell **exclusiva de Unix**.",
+          "followUp": "Después, ejecuta `pnpm dev` de nuevo. Ningún otro script usa la forma anterior."
+        }
       }
     },
     "browser": {

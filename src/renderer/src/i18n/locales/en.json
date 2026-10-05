@@ -240,7 +240,12 @@
         "sharper": "Sharper",
         "terminalInterfaceSummary": "Terminal interface",
         "contrastSummary": "Contrast {{value0}}",
-        "preview": "Preview"
+        "preview": "Preview",
+        "previewSample": {
+          "question": "Why does `pnpm dev` exit right after it starts on Windows?",
+          "explanation": "Use Node instead of **Unix-only** shell syntax.",
+          "followUp": "Then run `pnpm dev` again. No other script uses the old form."
+        }
       }
     },
     "browser": {

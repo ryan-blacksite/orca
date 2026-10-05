@@ -77,7 +77,12 @@
         "sharper": "선명하게",
         "terminalInterfaceSummary": "터미널 모양",
         "contrastSummary": "대비 {{value0}}",
-        "preview": "미리보기"
+        "preview": "미리보기",
+        "previewSample": {
+          "question": "Windows에서 `pnpm dev`가 시작 직후 종료되는 이유는 무엇인가요?",
+          "explanation": "**Unix 전용** 셸 구문 대신 Node를 사용하세요.",
+          "followUp": "그런 다음 `pnpm dev`를 다시 실행하세요. 다른 스크립트는 이전 형식을 사용하지 않습니다."
+        }
       }
     },
     "browser": {
