@@ -4,6 +4,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
 import { i18n } from '@/i18n/i18n'
+import { buildFontFamily } from '@/lib/monospace-font-family'
+import { resolveConfiguredTerminalColors } from '../../../../shared/terminal-theme-selection'
+import { resetSystemPrefersDarkSubscriptionForTests } from '../terminal-pane/use-system-prefers-dark'
 import es from '@/i18n/locales/es.json'
 import fr from '@/i18n/locales/fr.json'
 import ja from '@/i18n/locales/ja.json'
@@ -27,6 +30,7 @@ vi.mock('@/store', () => ({
 
 afterEach(async () => {
   cleanup()
+  resetSystemPrefersDarkSubscriptionForTests()
   vi.unstubAllGlobals()
   await i18n.changeLanguage('en')
 })
@@ -120,6 +124,98 @@ describe('NativeChatAppearancePreview', () => {
       />
     )
     expect(root.style.getPropertyValue('--chat-content-max-width')).toBe('none')
+  })
+
+  it('reflects contrast and live terminal colors and fonts, then removes matching overrides', () => {
+    const settings = { ...getDefaultSettings('/tmp'), theme: 'dark' as const }
+    const { container, rerender } = render(<NativeChatAppearancePreview settings={settings} />)
+    const root = previewRoot(container)
+    expect(root.style.getPropertyValue('--chat-foreground-mix')).toBe('78%')
+
+    rerender(
+      <NativeChatAppearancePreview
+        settings={{
+          ...settings,
+          terminalFontFamily: 'Menlo',
+          terminalColorOverrides: { background: '#122033', foreground: '#ddeeff' },
+          nativeChatAppearance: { contrast: 150, matchTerminalInterface: true }
+        }}
+      />
+    )
+    expect(root.style.getPropertyValue('--chat-foreground-mix')).toBe('100%')
+    expect(root.style.getPropertyValue('--chat-source-background')).toBe('#122033')
+    expect(root.style.getPropertyValue('--chat-source-foreground')).toBe('#ddeeff')
+    expect(root.style.getPropertyValue('--chat-font-family')).toBe(buildFontFamily('Menlo'))
+
+    rerender(
+      <NativeChatAppearancePreview
+        settings={{
+          ...settings,
+          terminalFontFamily: 'Consolas',
+          terminalColorOverrides: { background: '#ffffff', foreground: '#000000' },
+          nativeChatAppearance: { contrast: 50, matchTerminalInterface: true }
+        }}
+      />
+    )
+    expect(root.style.getPropertyValue('--chat-foreground-mix')).toBe('64%')
+    expect(root.style.getPropertyValue('--chat-source-background')).toBe('#ffffff')
+    expect(root.style.getPropertyValue('--chat-source-foreground')).toBe('#000000')
+    expect(root.style.getPropertyValue('--chat-font-family')).toBe(buildFontFamily('Consolas'))
+    expect(root.style.getPropertyValue('--chat-code-font-family')).toBe(buildFontFamily('Consolas'))
+
+    rerender(
+      <NativeChatAppearancePreview
+        settings={{
+          ...settings,
+          nativeChatAppearance: { contrast: 50, matchTerminalInterface: false }
+        }}
+      />
+    )
+    expect(root.style.getPropertyValue('--chat-foreground-mix')).toBe('56%')
+    expect(root.style.getPropertyValue('--chat-source-background')).toBe('')
+    expect(root.style.getPropertyValue('--chat-source-foreground')).toBe('')
+    expect(root.style.getPropertyValue('--chat-font-family')).toBe('')
+  })
+
+  it('follows system light and dark changes through the shared hook without a settings rerender', () => {
+    const media = Object.assign(new EventTarget(), {
+      matches: true,
+      media: '(prefers-color-scheme: dark)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn()
+    })
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => media)
+    )
+    const settings = {
+      ...getDefaultSettings('/tmp'),
+      theme: 'system' as const,
+      terminalUseSeparateLightTheme: true,
+      terminalThemeLight: 'Builtin Tango Light',
+      nativeChatAppearance: { matchTerminalInterface: true }
+    }
+    const { container } = render(<NativeChatAppearancePreview settings={settings} />)
+    const root = previewRoot(container)
+    const darkBackground = root.style.getPropertyValue('--chat-source-background')
+    expect(darkBackground).toBe(resolveConfiguredTerminalColors(settings, true).background)
+
+    act(() => {
+      media.matches = false
+      media.dispatchEvent(Object.assign(new Event('change'), { matches: false }))
+    })
+    expect(root.style.getPropertyValue('--chat-source-background')).toBe(
+      resolveConfiguredTerminalColors(settings, false).background
+    )
+    expect(root.style.getPropertyValue('--chat-source-background')).not.toBe(darkBackground)
+    expect(root.style.getPropertyValue('--chat-foreground-mix')).toBe('82%')
+
+    act(() => {
+      media.matches = true
+      media.dispatchEvent(Object.assign(new Event('change'), { matches: true }))
+    })
+    expect(root.style.getPropertyValue('--chat-source-background')).toBe(darkBackground)
   })
 
   it('blocks sample controls without IPC or reads and writes to a surrounding session disclosure store', () => {
