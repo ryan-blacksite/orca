@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
 import { AppearanceChatSection } from './AppearanceChatSection'
+import { getChatAppearanceEntriesByKey } from './chat-appearance-search'
 import { getAppearancePaneSearchEntries } from './appearance-search'
 import { matchesSettingsSearch } from './settings-search'
 
@@ -27,14 +28,34 @@ afterEach(() => {
 
 describe('chat appearance settings card', () => {
   it.each([
+    { platform: 'darwin', increase: '⌘=', decrease: '⌘-' },
+    { platform: 'win32', increase: 'Ctrl+=', decrease: 'Ctrl+-' },
+    { platform: 'linux', increase: 'Ctrl+=', decrease: 'Ctrl+-' }
+  ] as const)(
+    'shows only the primary default zoom shortcuts on $platform',
+    ({ platform, increase, decrease }) => {
+      mocks.platform = platform
+      render(
+        <AppearanceChatSection settings={getDefaultSettings('/tmp')} updateSettings={vi.fn()} />
+      )
+      const description = `Messages, tool activity and the message box. ${increase} / ${decrease} in a chat change this too.`
+      expect(screen.getByText(description)).toBeTruthy()
+      expect(getChatAppearanceEntriesByKey().textSize.description).toBe(description)
+    }
+  )
+
+  it.each([
     { platform: 'darwin', prefix: '⌘' },
     { platform: 'win32', prefix: 'Ctrl+' },
     { platform: 'linux', prefix: 'Ctrl+' }
   ] as const)(
-    'shows current zoom bindings on $platform and updates after rebinding',
+    'shows only the first zoom bindings on $platform and updates after rebinding',
     ({ platform, prefix }) => {
       mocks.platform = platform
-      mocks.state.keybindings = { 'zoom.in': ['Mod+Y'], 'zoom.out': ['Mod+U'] }
+      mocks.state.keybindings = {
+        'zoom.in': ['Mod+Y', 'Mod+Shift+Y'],
+        'zoom.out': ['Mod+U', 'Mod+Alt+U']
+      }
       const card = (
         <AppearanceChatSection settings={getDefaultSettings('/tmp')} updateSettings={vi.fn()} />
       )
@@ -44,7 +65,10 @@ describe('chat appearance settings card', () => {
           `Messages, tool activity and the message box. ${prefix}Y / ${prefix}U in a chat change this too.`
         )
       ).toBeTruthy()
-      mocks.state.keybindings = { 'zoom.in': ['Mod+I'], 'zoom.out': ['Mod+O'] }
+      mocks.state.keybindings = {
+        'zoom.in': ['Mod+I', 'Mod+Shift+I'],
+        'zoom.out': ['Mod+O', 'Mod+Alt+O']
+      }
       rerender(
         <AppearanceChatSection settings={getDefaultSettings('/tmp')} updateSettings={vi.fn()} />
       )

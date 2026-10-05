@@ -3,7 +3,8 @@ import {
   resolveNativeChatAppearanceSettings,
   type NativeChatAppearanceSettings
 } from '../../../../shared/native-chat-appearance-settings'
-import { useShortcutLabel } from '@/hooks/useShortcutLabel'
+import { useAppStore } from '../../store'
+import { formatPrimaryShortcutLabel } from '@/hooks/useShortcutLabel'
 import { translate } from '@/i18n/i18n'
 import { Button } from '../ui/button'
 import { SearchableSetting } from './SearchableSetting'
@@ -23,8 +24,9 @@ export function AppearanceChatSection({
   forceVisiblePrimary = false
 }: AppearanceChatSectionProps): React.JSX.Element {
   const appearance = resolveNativeChatAppearanceSettings(settings.nativeChatAppearance)
-  const increase = useShortcutLabel('zoom.in')
-  const decrease = useShortcutLabel('zoom.out')
+  const keybindings = useAppStore((state) => state.keybindings)
+  const increase = formatPrimaryShortcutLabel('zoom.in', keybindings)
+  const decrease = formatPrimaryShortcutLabel('zoom.out', keybindings)
   const entries = getChatAppearanceEntriesByKey({ increase, decrease })
   const update = (updates: NativeChatAppearanceSettings): void => {
     updateSettings({

@@ -1,7 +1,7 @@
 import { translate } from '@/i18n/i18n'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 import type { SettingsSearchEntry } from './settings-search'
-import { formatShortcutLabel } from '@/hooks/useShortcutLabel'
+import { formatPrimaryShortcutLabel } from '@/hooks/useShortcutLabel'
 
 const getChatAppearanceCatalog = createLocalizedCatalog(
   () =>
@@ -49,8 +49,8 @@ export function getChatAppearanceEntriesByKey(shortcuts?: { increase: string; de
         'settings.appearance.chat.textSizeDescription',
         'Messages, tool activity and the message box. {{increase}} / {{decrease}} in a chat change this too.',
         {
-          increase: shortcuts?.increase ?? formatShortcutLabel('zoom.in'),
-          decrease: shortcuts?.decrease ?? formatShortcutLabel('zoom.out')
+          increase: shortcuts?.increase ?? formatPrimaryShortcutLabel('zoom.in'),
+          decrease: shortcuts?.decrease ?? formatPrimaryShortcutLabel('zoom.out')
         }
       )
     }
