@@ -130,3 +130,20 @@ it('drops assembled parts and subscriptions on a stalled owned stream', async ()
     vi.useRealTimers()
   }
 })
+
+it('accepts an exact-budget honest response split across padded base64 chunks', async () => {
+  const f = fixture()
+  const result = requestGitStreamable(f.mux, 'fs.readDir', {}, { maxResponseBytes: 64 })
+  const payload = JSON.stringify('x'.repeat(62))
+  expect(Buffer.byteLength(payload)).toBe(64)
+  for (let seq = 0; seq < 4; seq++) {
+    f.emit('git.responseChunk', {
+      streamId: 1,
+      seq,
+      data: Buffer.from(payload.slice(seq * 16, (seq + 1) * 16)).toString('base64')
+    })
+  }
+  f.emit('git.responseEnd', { streamId: 1 })
+  f.replies[0](marker(1, 64, 4))
+  await expect(result).resolves.toBe('x'.repeat(62))
+})

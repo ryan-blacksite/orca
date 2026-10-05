@@ -16,8 +16,9 @@ export class SshResponsePendingFrames {
   readonly maxEncodedBytes: number
 
   constructor(maxResponseBytes = DEFAULT_PENDING_RESPONSE_BYTES) {
-    // Base64 expands bytes by 4/3; strings retain two bytes per code unit.
-    this.maxEncodedBytes = Math.ceil(maxResponseBytes / 3) * 8
+    // Each chunk pads independently; allow bounded padding as well as two-byte code units.
+    this.maxEncodedBytes =
+      Math.ceil(maxResponseBytes / 3) * 8 + (maxResponseBytes > 0 ? MAX_PENDING_FRAMES * 8 : 0)
   }
 
   private recordDrop(streamId: number): void {
