@@ -206,12 +206,24 @@ export function installMainWindowShortcutRouting(args: {
     }
 
     // Why: keep interception an explicit allowlist so readline control chords reach the PTY instead of being silently stolen.
-    const action = resolveWindowShortcutAction(
+    let action = resolveWindowShortcutAction(
       input,
       process.platform,
       keybindings,
       terminalShortcutContext
     )
+    // The shifted minus variant uses the same route; explicit custom bindings win.
+    if (!action && input.key === '_' && input.shift) {
+      const minusAction = resolveWindowShortcutAction(
+        { ...input, key: '-', code: 'Minus', shift: false },
+        process.platform,
+        keybindings,
+        terminalShortcutContext
+      )
+      if (minusAction?.type === 'zoom' && minusAction.direction === 'out') {
+        action = minusAction
+      }
+    }
     if (!action) {
       return
     }

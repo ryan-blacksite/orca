@@ -66,8 +66,6 @@
         "comfortable": "Cómodo",
         "wide": "Amplio",
         "full": "Completo",
-        "defaultTextSize": "Predeterminado: 14px",
-        "defaultCodeTextSize": "Predeterminado: 12px",
         "pixels": "px",
         "reset": "Restablecer",
         "summary": "{{fontSize}}px · Ancho {{width}}"

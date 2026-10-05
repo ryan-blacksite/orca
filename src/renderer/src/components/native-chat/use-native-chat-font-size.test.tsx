@@ -8,10 +8,11 @@ const mocks = vi.hoisted(() => {
   const updateSettings = vi.fn(async (updates: typeof settings) => {
     Object.assign(settings, updates)
   })
-  return { settings, updateSettings }
+  return { settings, updateSettings, web: true }
 })
 vi.mock('../../store', () => ({ useAppStore: { getState: () => mocks } }))
-import { useNativeChatFontScale } from './use-native-chat-font-scale'
+import { useNativeChatFontSize } from './use-native-chat-font-size'
+vi.mock('@/lib/web-client-location', () => ({ isWebClientLocation: () => mocks.web }))
 import { isMacPlatform } from './native-chat-shortcut'
 
 function key(key: string, target: EventTarget = window): void {
@@ -27,6 +28,7 @@ function key(key: string, target: EventTarget = window): void {
 }
 afterEach(() => {
   cleanup()
+  mocks.web = true
   delete mocks.settings.nativeChatAppearance
   mocks.updateSettings.mockClear()
 })
@@ -34,7 +36,7 @@ afterEach(() => {
 describe('persisted chat font-size shortcuts', () => {
   it('serializes quick repeats against the latest stored size, clamps, and resets only text size', async () => {
     mocks.settings.nativeChatAppearance = { fontSize: 19, codeFontSize: 16, width: 'wide' }
-    renderHook(() => useNativeChatFontScale(true))
+    renderHook(() => useNativeChatFontSize(true))
     act(() => {
       key('+')
       key('+')
@@ -52,7 +54,7 @@ describe('persisted chat font-size shortcuts', () => {
     )
   })
   it('writes an absent object on reset and ignores inactive panes', async () => {
-    const { rerender } = renderHook(({ enabled }) => useNativeChatFontScale(enabled), {
+    const { rerender } = renderHook(({ enabled }) => useNativeChatFontSize(enabled), {
       initialProps: { enabled: false }
     })
     key('+')
@@ -63,16 +65,25 @@ describe('persisted chat font-size shortcuts', () => {
     key('0')
     await waitFor(() => expect(mocks.settings.nativeChatAppearance).toBeUndefined())
   })
+  it('does not listen to desktop DOM keys that are handled by the IPC bridge', () => {
+    mocks.web = false
+    renderHook(() => useNativeChatFontSize(true))
+    key('+')
+    key('-')
+    key('0')
+    key('_')
+    expect(mocks.updateSettings).not.toHaveBeenCalled()
+  })
   it('only handles keys originating in its chat root', async () => {
     const root = document.createElement('div')
     const input = document.createElement('input')
     root.append(input)
     document.body.append(root)
-    renderHook(() => useNativeChatFontScale(true, { current: root }))
+    renderHook(() => useNativeChatFontSize(true, { current: root }))
     key('+')
     expect(mocks.updateSettings).not.toHaveBeenCalled()
-    key('+', input)
-    await waitFor(() => expect(mocks.settings.nativeChatAppearance).toEqual({ fontSize: 15 }))
+    key('_', input)
+    await waitFor(() => expect(mocks.settings.nativeChatAppearance).toEqual({ fontSize: 13 }))
     root.remove()
   })
 })

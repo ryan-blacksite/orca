@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chatFontScaleActionForEvent, chatFontSizeForAction } from './native-chat-font-scale'
+import { chatFontSizeActionForEvent, chatFontSizeForAction } from './native-chat-font-size'
 
 type Combo = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey'>
 
@@ -22,42 +22,42 @@ describe('chatFontSizeForAction', () => {
   })
 })
 
-describe('chatFontScaleActionForEvent', () => {
+describe('chatFontSizeActionForEvent', () => {
   it('maps Cmd+= to increase on Mac', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '=', metaKey: true }), true)).toBe('increase')
+    expect(chatFontSizeActionForEvent(combo({ key: '=', metaKey: true }), true)).toBe('increase')
   })
 
   it('maps Cmd++ (shifted equals) to increase on Mac', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '+', metaKey: true }), true)).toBe('increase')
+    expect(chatFontSizeActionForEvent(combo({ key: '+', metaKey: true }), true)).toBe('increase')
   })
 
   it('maps Cmd+- to decrease on Mac', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '-', metaKey: true }), true)).toBe('decrease')
+    expect(chatFontSizeActionForEvent(combo({ key: '-', metaKey: true }), true)).toBe('decrease')
   })
 
   it('maps Cmd+0 to reset on Mac', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '0', metaKey: true }), true)).toBe('reset')
+    expect(chatFontSizeActionForEvent(combo({ key: '0', metaKey: true }), true)).toBe('reset')
   })
 
   it('maps Ctrl+= to increase on Windows/Linux', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '=', ctrlKey: true }), false)).toBe('increase')
+    expect(chatFontSizeActionForEvent(combo({ key: '=', ctrlKey: true }), false)).toBe('increase')
   })
 
   it('ignores the wrong primary modifier on Mac', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '=', ctrlKey: true }), true)).toBeNull()
+    expect(chatFontSizeActionForEvent(combo({ key: '=', ctrlKey: true }), true)).toBeNull()
   })
 
   it('ignores Cmd+Ctrl chords', () => {
     expect(
-      chatFontScaleActionForEvent(combo({ key: '=', metaKey: true, ctrlKey: true }), true)
+      chatFontSizeActionForEvent(combo({ key: '=', metaKey: true, ctrlKey: true }), true)
     ).toBeNull()
   })
 
   it('returns null for an unrelated key', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: 'a', metaKey: true }), true)).toBeNull()
+    expect(chatFontSizeActionForEvent(combo({ key: 'a', metaKey: true }), true)).toBeNull()
   })
 
   it('returns null without a primary modifier', () => {
-    expect(chatFontScaleActionForEvent(combo({ key: '=' }), true)).toBeNull()
+    expect(chatFontSizeActionForEvent(combo({ key: '=' }), true)).toBeNull()
   })
 })

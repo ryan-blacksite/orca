@@ -5,6 +5,23 @@ import {
 } from './native-chat-appearance-settings'
 
 describe('native chat appearance normalization', () => {
+  it('preserves unknown future fields while normalizing only known fields', () => {
+    const future = {
+      contrast: 151,
+      matchTerminalInterface: true,
+      futureSetting: { nested: 'keep' }
+    }
+    expect(
+      normalizeNativeChatAppearanceSettings({
+        ...future,
+        fontSize: 99,
+        codeFontSize: 12,
+        width: 'comfortable'
+      })
+    ).toEqual({ ...future, fontSize: 20 })
+    expect(normalizeNativeChatAppearanceSettings(future)).toEqual(future)
+  })
+
   it('derives defaults without storing them', () => {
     expect(
       normalizeNativeChatAppearanceSettings({

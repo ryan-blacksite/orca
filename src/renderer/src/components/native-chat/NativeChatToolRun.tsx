@@ -24,6 +24,7 @@ import {
 } from '../../../../shared/native-chat-tool-pairing'
 import {
   describeLatestToolCall,
+  isCommandToolName,
   NATIVE_CHAT_TOOL_ACTIVITY_COPY,
   selectActiveToolCall
 } from '../../../../shared/native-chat-tool-activity'
@@ -264,7 +265,7 @@ export function NativeChatToolRun({
               beside it is what gives way. */}
           <span
             className={cn(
-              'truncate text-sm leading-relaxed transition-colors',
+              'truncate text-sm native-chat-message-text leading-relaxed transition-colors',
               live
                 ? 'max-w-[72%] shrink-0 animate-pulse text-foreground/85 motion-reduce:animate-none'
                 : 'min-w-0 text-muted-foreground group-hover/tool-run:text-foreground/80'
@@ -300,7 +301,12 @@ export function NativeChatToolRun({
             <Check aria-hidden className="size-3 shrink-0 text-muted-foreground" />
           ) : null}
           {latestCallLabel ? (
-            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+            <span
+              data-native-chat-code-content={
+                latestCall && isCommandToolName(latestCall.name) ? true : undefined
+              }
+              className="min-w-0 truncate font-mono text-[11px] text-muted-foreground"
+            >
               {latestCallLabel}
             </span>
           ) : null}

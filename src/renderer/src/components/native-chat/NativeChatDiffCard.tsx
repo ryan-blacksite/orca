@@ -202,6 +202,7 @@ export function NativeChatDiffCard({
       {hasBody && expanded ? (
         // Focusable so the rows can be scrolled from the keyboard.
         <div
+          data-native-chat-code-content
           tabIndex={0}
           className="max-h-72 overflow-auto font-mono text-[11px] leading-relaxed scrollbar-sleek focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
         >

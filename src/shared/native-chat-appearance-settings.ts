@@ -23,7 +23,7 @@ function normalizeSize(value: unknown, min: number, max: number, fallback: numbe
 export function normalizeNativeChatAppearanceSettings(
   value: unknown
 ): NativeChatAppearanceSettings | undefined {
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return undefined
   }
   const fontSize = normalizeSize('fontSize' in value ? value.fontSize : undefined, 12, 20, 14)
@@ -36,6 +36,9 @@ export function normalizeNativeChatAppearanceSettings(
   const width =
     'width' in value && (value.width === 'wide' || value.width === 'full') ? value.width : undefined
   const normalized: NativeChatAppearanceSettings = {
+    ...Object.fromEntries(
+      Object.entries(value).filter(([key]) => !['fontSize', 'codeFontSize', 'width'].includes(key))
+    ),
     ...(fontSize !== DEFAULT_NATIVE_CHAT_FONT_SIZE ? { fontSize } : {}),
     ...(codeFontSize !== DEFAULT_NATIVE_CHAT_CODE_FONT_SIZE ? { codeFontSize } : {}),
     ...(width ? { width } : {})

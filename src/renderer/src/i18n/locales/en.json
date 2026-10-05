@@ -229,8 +229,6 @@
         "comfortable": "Comfortable",
         "wide": "Wide",
         "full": "Full",
-        "defaultTextSize": "Default: 14px",
-        "defaultCodeTextSize": "Default: 12px",
         "pixels": "px",
         "reset": "Reset",
         "summary": "{{fontSize}}px · {{width}} width"

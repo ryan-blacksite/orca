@@ -66,8 +66,6 @@
         "comfortable": "舒适",
         "wide": "宽",
         "full": "全宽",
-        "defaultTextSize": "默认：14px",
-        "defaultCodeTextSize": "默认：12px",
         "pixels": "px",
         "reset": "重置",
         "summary": "{{fontSize}}px · {{width}}宽度"

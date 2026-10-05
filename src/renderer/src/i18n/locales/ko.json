@@ -66,8 +66,6 @@
         "comfortable": "편안하게",
         "wide": "넓게",
         "full": "전체",
-        "defaultTextSize": "기본값: 14px",
-        "defaultCodeTextSize": "기본값: 12px",
         "pixels": "px",
         "reset": "초기화",
         "summary": "{{fontSize}}px · {{width}} 너비"

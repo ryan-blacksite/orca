@@ -66,8 +66,6 @@
         "comfortable": "標準",
         "wide": "広い",
         "full": "全幅",
-        "defaultTextSize": "既定値: 14px",
-        "defaultCodeTextSize": "既定値: 12px",
         "pixels": "px",
         "reset": "リセット",
         "summary": "{{fontSize}}px · 幅: {{width}}"

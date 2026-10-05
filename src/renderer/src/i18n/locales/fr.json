@@ -165,8 +165,6 @@
         "comfortable": "Confortable",
         "wide": "Large",
         "full": "Pleine",
-        "defaultTextSize": "Par défaut : 14px",
-        "defaultCodeTextSize": "Par défaut : 12px",
         "pixels": "px",
         "reset": "Réinitialiser",
         "summary": "{{fontSize}}px · Largeur {{width}}"

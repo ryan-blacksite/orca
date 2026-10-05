@@ -1,3 +1,4 @@
+import { toolInputCommand } from '../../../../shared/native-chat-tool-summary'
 import type { CommentMarkdownLinkClickHandler } from '@/components/sidebar/CommentMarkdown'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -104,6 +105,9 @@ export function NativeChatToolLine({
         {preview ? (
           <span
             className="min-w-0 truncate font-mono text-[11px] text-muted-foreground transition-colors group-hover/tool-line:text-foreground/70"
+            data-native-chat-code-content={
+              isCall && toolInputCommand(block.input) ? true : undefined
+            }
             title={preview}
           >
             {preview}
@@ -128,12 +132,16 @@ export function NativeChatToolLine({
           ) : null}
           {diff ? <NativeChatDiffView lines={diff} /> : null}
           {!diff && detail ? (
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-accent p-2 font-mono text-[11px] text-foreground/80 scrollbar-sleek">
+            <pre
+              data-native-chat-code-content
+              className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-accent p-2 font-mono text-[11px] text-foreground/80 scrollbar-sleek"
+            >
               {detail}
             </pre>
           ) : null}
           {body ? (
             <pre
+              data-native-chat-code-content
               className={cn(
                 'max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-accent p-2 font-mono text-[11px] scrollbar-sleek',
                 body.isError ? 'text-destructive' : 'text-foreground/80'

@@ -91,7 +91,8 @@ describe('createMainWindow', () => {
       { preventDefault: undoPreventDefault } as never,
       { type: 'keyDown', ...primary, alt: false, shift: true, key: '_' } as never
     )
-    expect(undoPreventDefault).not.toHaveBeenCalled()
+    expect(undoPreventDefault).toHaveBeenCalledOnce()
+    expect(webContents.send).toHaveBeenLastCalledWith('terminal:zoom', 'out')
   })
 
   it('routes Electron zoom command events to terminal zoom', () => {
@@ -176,6 +177,18 @@ describe('createMainWindow', () => {
     const preventDefault = vi.fn()
     onZoomChanged({ preventDefault } as never, 'out')
     onZoomChanged({ preventDefault } as never, 'in')
+
+    windowHandlers['before-input-event'](
+      { preventDefault },
+      {
+        type: 'keyDown',
+        key: '_',
+        code: 'Minus',
+        shift: true,
+        meta: process.platform === 'darwin',
+        control: process.platform !== 'darwin'
+      }
+    )
 
     expect(preventDefault).not.toHaveBeenCalled()
     expect(webContents.send).not.toHaveBeenCalled()
