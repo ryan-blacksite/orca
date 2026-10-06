@@ -6,6 +6,7 @@ import type {
   AgentSessionExecutionLocation
 } from '../../../shared/agent-session-record'
 import type { StructuredAgentSessionAdapter } from './structured-agent-session-adapter'
+import { readNativeSessionOptions } from './structured-agent-session-option-restoration'
 
 type RoutedAgent = 'claude' | 'codex'
 type SessionRoute = { adapter: StructuredAgentSessionAdapter; state: 'live' | 'stopped' }
@@ -158,6 +159,17 @@ export class StructuredAgentSessionAdapterRouter implements StructuredAgentSessi
       throw new Error(`structured session ${input.sessionId} does not report options`)
     }
     return reader(input)
+  }
+
+  readAcquisitionOptions = (input: {
+    sessionId: string
+    fence: number
+    priorOptions?: Readonly<Record<string, string>>
+  }) => {
+    const adapter = this.owner(input.sessionId)
+    return adapter.readAcquisitionOptions
+      ? adapter.readAcquisitionOptions(input)
+      : readNativeSessionOptions({ adapter, ...input })
   }
 
   readOptionRestoreFailures = (sessionId: string): readonly string[] =>

@@ -366,6 +366,15 @@ export type StructuredAgentSessionAdapter = StructuredAgentSessionAdapterStop & 
    *  why. Never rejects. */
   awaitStarted?(sessionId: string): Promise<void | SubmissionRejectionFact>
   readOptions?(input: { sessionId: string; fence: number }): Promise<AgentSessionOptionsResult>
+  /** Effective options already known after acquisition, without discovering picker choices. */
+  readAcquisitionOptions?(input: {
+    sessionId: string
+    fence: number
+    priorOptions?: Readonly<Record<string, string>>
+  }):
+    | Promise<Readonly<Record<string, string>> | undefined>
+    | Readonly<Record<string, string>>
+    | undefined
   /** Option keys skipped after a provider rejected their persisted restore value. */
   readOptionRestoreFailures?(sessionId: string): readonly string[]
   /** Provider history for restart reconciliation, bounded to what the provider

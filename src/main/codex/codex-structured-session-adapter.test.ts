@@ -23,6 +23,64 @@ import {
 import { codexProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
 
 describe('CodexStructuredSessionAdapter.acquire', () => {
+  it('keeps a started thread usable when its model listing never answers', async () => {
+    const codex = fakeCodex({ 'model/list': () => new Promise<never>(() => {}) })
+    const adapter = adapterFor(codex)
+
+    await adapter.acquire({
+      identity: identityFor('session-1'),
+      fence: 7,
+      spawnToken: 'spawn-9',
+      options: { model: 'gpt-saved', effort: 'low', fastMode: 'true' }
+    })
+
+    expect(adapter.readAcquisitionOptions({ sessionId: 'session-1', fence: 7 })).toEqual({
+      model: 'gpt-live',
+      effort: 'medium',
+      fastMode: 'true'
+    })
+    expect(codex.connections[0].calls.map((call) => call.method)).toEqual(['thread/start'])
+  })
+
+  it('keeps saved non-turn options while replacing reported model and effort', async () => {
+    const codex = fakeCodex()
+    const adapter = adapterFor(codex)
+    await adapter.acquire({
+      identity: identityFor('session-1'),
+      fence: 7,
+      spawnToken: 'spawn-9',
+      options: { model: 'gpt-saved', effort: 'low', personality: 'concise' }
+    })
+
+    expect(
+      adapter.readAcquisitionOptions({
+        sessionId: 'session-1',
+        fence: 7,
+        priorOptions: { model: 'gpt-saved', effort: 'low', personality: 'concise' }
+      })
+    ).toEqual({ model: 'gpt-live', effort: 'medium', personality: 'concise' })
+  })
+
+  it('leaves a rejected listing as a catalog error after the thread opens', async () => {
+    const codex = fakeCodex({
+      'model/list': () => {
+        throw new Error('stub model/list rejected')
+      }
+    })
+    const adapter = adapterFor(codex)
+
+    await adapter.acquire({ identity: identityFor('session-1'), fence: 7, spawnToken: 'spawn-9' })
+
+    expect(adapter.readAcquisitionOptions({ sessionId: 'session-1', fence: 7 })).toEqual({
+      model: 'gpt-live',
+      effort: 'medium'
+    })
+    await expect(adapter.readOptions({ sessionId: 'session-1', fence: 7 })).rejects.toThrow(
+      'stub model/list rejected'
+    )
+    expect(codex.connections[0].closeCount).toBe(0)
+  })
+
   it('starts a new thread and reports the process and link the lease will prove', async () => {
     const codex = fakeCodex()
     const adapter = adapterFor(codex, { codexHome: '/codex/home' })

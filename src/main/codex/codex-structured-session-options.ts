@@ -121,30 +121,12 @@ async function codexSessionCatalogListingForValidation(
   }
 }
 
-/** Get-or-fetch for acquire time, before the session object exists. Null on a
- *  failed fetch — fast-mode restore degrades exactly as a failed listing did. */
-export async function codexAcquireCatalogListing(
-  connection: Pick<CodexAppServerConnection, 'request'>,
-  catalogAccess: CodexSessionCatalogAccess | undefined,
-  timeoutMs: number | undefined
-): Promise<CodexModelCatalogListing | null> {
+/** Acquisition uses known choices only; picker reads discover new choices later. */
+export function codexAcquireCatalogListing(
+  catalogAccess: CodexSessionCatalogAccess | undefined
+): CodexModelCatalogListing | null {
   const entry = catalogAccess?.store.get(catalogAccess.fingerprint)
-  if (entry) {
-    return listingFromEntry(entry)
-  }
-  try {
-    const listing = await fetchCodexModelCatalogListing({ connection, timeoutMs })
-    if (catalogAccess && listing.models.length > 0) {
-      catalogAccess.store.recordSuccess(catalogAccess.fingerprint, 'codex', {
-        models: listing.models,
-        fastModeTierByModel: listing.fastModeTierByModel,
-        origin: 'live-session'
-      })
-    }
-    return listing
-  } catch {
-    return null
-  }
+  return entry ? listingFromEntry(entry) : null
 }
 
 export async function readCodexStructuredSessionOptions(input: {
@@ -180,11 +162,10 @@ function composeLiveCodexCatalog(
   })
 }
 
-export async function readLiveCodexSessionOptions(
+function applyLiveCodexCatalog(
   session: CodexSession,
-  timeoutMs: number | undefined
-): Promise<AgentSessionOptionsResult> {
-  const listing = await codexSessionCatalogListingForPicker(session, timeoutMs)
+  listing: CodexModelCatalogListing
+): AgentSessionOptionsResult {
   const catalog = composeLiveCodexCatalog(session, listing)
   reconcileCodexFastModeOption(session, {
     fastModeTierByModel: catalog.fastModeTierByModel,
@@ -198,6 +179,38 @@ export async function readLiveCodexSessionOptions(
   return fastMode === undefined
     ? catalog.result
     : { ...catalog.result, current: { ...catalog.result.current, fastMode } }
+}
+
+export async function readLiveCodexSessionOptions(
+  session: CodexSession,
+  timeoutMs: number | undefined
+): Promise<AgentSessionOptionsResult> {
+  const listing = await codexSessionCatalogListingForPicker(session, timeoutMs)
+  return applyLiveCodexCatalog(session, listing)
+}
+
+/** A saved Fast choice needs an exact tier before its first turn; failure leaves
+ *  the existing Standard fallback in place and picker discovery can retry. */
+export async function discoverCodexFastModeTierForTurn(
+  session: CodexSession,
+  timeoutMs: number | undefined
+): Promise<void> {
+  try {
+    const listing = await fetchCodexModelCatalogListing({
+      connection: session.connection,
+      timeoutMs
+    })
+    if (listing.models.length > 0) {
+      session.catalogAccess?.store.recordSuccess(session.catalogAccess.fingerprint, 'codex', {
+        models: listing.models,
+        fastModeTierByModel: listing.fastModeTierByModel,
+        origin: 'live-session'
+      })
+    }
+    applyLiveCodexCatalog(session, listing)
+  } catch {
+    // The send still runs Standard when this account cannot name a Fast tier.
+  }
 }
 
 export async function applyCodexStructuredSessionOption(

@@ -282,6 +282,27 @@ export class CodexStructuredSessionAdapter implements StructuredAgentSessionAdap
   readOptions = (input: { sessionId: string; fence: number }) =>
     readLiveCodexSessionOptions(this.session(input.sessionId), this.deps.requestTimeoutMs)
 
+  readAcquisitionOptions = (input: {
+    sessionId: string
+    fence: number
+    priorOptions?: Readonly<Record<string, string>>
+  }) => {
+    const session = this.session(input.sessionId)
+    const options = {
+      ...Object.fromEntries(
+        Object.entries(input.priorOptions ?? {}).filter(([key]) => !isCodexTurnOptionKey(key))
+      ),
+      ...Object.fromEntries(session.options)
+    }
+    if (session.reportedOptions.model) {
+      options.model = session.reportedOptions.model
+    }
+    if (session.reportedOptions.effort) {
+      options.effort = session.reportedOptions.effort
+    }
+    return Object.keys(options).length > 0 ? options : undefined
+  }
+
   closeSession = (sessionId: string): Promise<boolean> => this.teardown.close(sessionId)
   forceCloseSession = (sessionId: string): Promise<boolean> => this.teardown.forceClose(sessionId)
   disposeSession = (sessionId: string): Promise<boolean> => this.teardown.close(sessionId)

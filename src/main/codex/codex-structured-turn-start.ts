@@ -56,6 +56,7 @@ export type CodexTurnHost = {
   options: Map<string, string>
   reportedOptions?: { model?: string }
   fastModeTierByModel: ReadonlyMap<string, string>
+  resolveFastModeTier?: () => Promise<void>
   dispatchEchoes: CodexDispatchEchoes
   activeTurnIds?: ReadonlySet<string>
   turnOpenWaits: Pick<CodexTurnOpenWaits, 'wait'>
@@ -81,7 +82,7 @@ function codexTurnOptions(host: CodexTurnHost): Record<string, string> {
   )
   const encodedFastMode = host.options.get('fastMode')
   if (encodedFastMode === undefined) {
-    return options
+    return host.options.has('serviceTier') ? { ...options, serviceTier: 'default' } : options
   }
   const fastMode = decodeStructuredAgentSessionOptionValue('fastMode', encodedFastMode)
   if (typeof fastMode !== 'boolean') {
@@ -160,6 +161,13 @@ export async function startCodexTurn(
   }
   if (steered) {
     return steered
+  }
+  const model = host.options.get('model') ?? host.reportedOptions?.model
+  if (
+    (host.options.get('fastMode') === 'true' || host.options.has('serviceTier')) &&
+    (!model || !host.fastModeTierByModel.has(model))
+  ) {
+    await host.resolveFastModeTier?.()
   }
   const answer = await host.connection.request(
     'turn/start',

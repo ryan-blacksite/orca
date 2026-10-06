@@ -135,6 +135,8 @@ export type CodexSession = {
   }
   /** Exact provider-advertised Fast request value for each discovered model. */
   fastModeTierByModel: Map<string, string>
+  /** One bounded first-turn discovery when saved Fast has no known tier. */
+  resolveFastModeTier?: () => Promise<void>
   /** Absent when the adapter runs without a host catalog store (tests). */
   catalogAccess?: CodexSessionCatalogAccess
   /** Sends whose identity is still to be settled by the provider echo. */

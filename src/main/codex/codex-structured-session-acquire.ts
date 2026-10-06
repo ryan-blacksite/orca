@@ -27,7 +27,10 @@ import {
   closeCodexPublishedSession,
   handleCodexSessionExit
 } from './codex-structured-session-close'
-import { restoredCodexSessionOptions } from './codex-structured-session-options'
+import {
+  discoverCodexFastModeTierForTurn,
+  restoredCodexSessionOptions
+} from './codex-structured-session-options'
 import {
   codexAcquireCatalogAccess,
   codexAcquireFastModeCatalog
@@ -234,18 +237,17 @@ export async function acquireCodexStructuredSession(input: {
     acquisitions.assertCurrent(sessionId, attempt)
     const options = restoredCodexSessionOptions(acquireInput.options)
     const catalogAccess = codexAcquireCatalogAccess(deps, launch)
-    const fastModeCatalog = await codexAcquireFastModeCatalog({
-      connection,
+    const fastModeCatalog = codexAcquireFastModeCatalog({
       catalogAccess,
       opened,
-      restoreNeedsCatalog: options.get('fastMode') === 'true' || options.has('serviceTier'),
-      timeoutMs: deps.requestTimeoutMs
+      restoreNeedsCatalog: options.get('fastMode') === 'true' || options.has('serviceTier')
     })
     acquisitions.assertCurrent(sessionId, attempt)
     assertCodexConnectionOpen(connection, sessionId)
     acquisitions.deleteIfCurrent(sessionId, attempt)
     // Where this session's child work goes: the host's records, after each frame is journaled.
     const sink = codexChildWorkSink(sessionId, deps)
+    let fastModeListing: Promise<void> | null = null
     const session: CodexSession = {
       connection,
       ...codexSessionLifecycle(acquireInput.fence, acquired.acquisitionGeneration as string),
@@ -256,6 +258,8 @@ export async function acquireCodexStructuredSession(input: {
       options,
       reportedOptions: reportedCodexThreadOptions(opened),
       fastModeTierByModel: fastModeCatalog?.fastModeTierByModel ?? new Map(),
+      resolveFastModeTier: () =>
+        (fastModeListing ??= discoverCodexFastModeTierForTurn(session, deps.requestTimeoutMs)),
       ...(catalogAccess ? { catalogAccess } : {}),
       dispatchEchoes,
       translator,
