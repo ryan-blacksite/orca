@@ -25,22 +25,34 @@ export function boundedArray<T>(
   return boundedList(value, maximum, parse, `orcad_migration_manifest_${label}`)
 }
 
-export function assertUniqueIds(values: { id: string }[], label: string): void {
-  const ids = new Set<string>()
-  for (const value of values) {
-    if (ids.has(value.id)) {
-      throw new Error(`orcad_migration_manifest_${label}_duplicate_id`)
-    }
-    ids.add(value.id)
+/** The one uniqueness check; callers pass their own error code. */
+export function assertUniqueKeys<T>(values: T[], key: (value: T) => string, error: string): void {
+  const keys = values.map(key)
+  if (new Set(keys).size !== keys.length) {
+    throw new Error(error)
   }
 }
 
-export function boundedStringArray(value: unknown, maximum: number, label: string): string[] {
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string' && entry)) {
-    throw new Error(`${label}_invalid`)
+export function assertUniqueIds(values: { id: string }[], label: string): void {
+  assertUniqueKeys(values, (value) => value.id, `orcad_migration_manifest_${label}_duplicate_id`)
+}
+
+/** The one bounded, non-empty, duplicate-free string list check; callers pass their error codes. */
+export function boundedStringArray(
+  value: unknown,
+  maximum: number,
+  invalid: string,
+  duplicate = invalid
+): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.length > maximum ||
+    !value.every((entry) => typeof entry === 'string' && entry)
+  ) {
+    throw new Error(invalid)
   }
-  if (value.length > maximum || new Set(value).size !== value.length) {
-    throw new Error(`${label}_invalid`)
+  if (new Set(value).size !== value.length) {
+    throw new Error(duplicate)
   }
   return [...value]
 }

@@ -1,19 +1,15 @@
 import type { WorkspaceHostScope } from './ui-chrome-types'
 import type { SavedPortForward } from './ssh-types'
 import { requiredRecord } from './orcad-migration-dormant-value-validation'
+import { boundedStringArray } from './orcad-migration-manifest-fields'
 
 export function parseStringArray(value: unknown, max: number): string[] {
-  if (
-    !Array.isArray(value) ||
-    value.length > max ||
-    !value.every((entry) => typeof entry === 'string' && entry)
-  ) {
-    throw new Error('orcad_migration_dormant_ui_routing_invalid')
-  }
-  if (new Set(value).size !== value.length) {
-    throw new Error('orcad_migration_dormant_ui_routing_duplicate')
-  }
-  return [...value]
+  return boundedStringArray(
+    value,
+    max,
+    'orcad_migration_dormant_ui_routing_invalid',
+    'orcad_migration_dormant_ui_routing_duplicate'
+  )
 }
 
 export function positivePort(value: unknown, label: string): number {

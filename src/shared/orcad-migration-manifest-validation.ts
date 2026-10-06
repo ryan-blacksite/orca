@@ -264,17 +264,17 @@ function parseReceipt(value: unknown): OrcadMigrationImportReceipt {
     repositoryIds: boundedStringArray(
       value.repositoryIds,
       MAX_ORCAD_MIGRATION_REPOSITORIES,
-      'receipt.repositoryIds'
+      'receipt.repositoryIds_invalid'
     ),
     projectGroupIds: boundedStringArray(
       value.projectGroupIds,
       MAX_ORCAD_MIGRATION_PROJECT_GROUPS,
-      'receipt.projectGroupIds'
+      'receipt.projectGroupIds_invalid'
     ),
     folderWorkspaceIds: boundedStringArray(
       value.folderWorkspaceIds,
       MAX_ORCAD_MIGRATION_FOLDER_WORKSPACES,
-      'receipt.folderWorkspaceIds'
+      'receipt.folderWorkspaceIds_invalid'
     )
   }
 }

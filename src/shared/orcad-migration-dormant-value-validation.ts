@@ -1,4 +1,10 @@
-import { boundedList, isRecord, nonEmptyString } from './orcad-migration-manifest-fields'
+import {
+  assertUniqueKeys,
+  boundedList,
+  boundedStringArray,
+  isRecord,
+  nonEmptyString
+} from './orcad-migration-manifest-fields'
 
 export const MAX_ORCAD_MIGRATION_DORMANT_ROWS = 16_384
 export const MAX_ORCAD_MIGRATION_DORMANT_NAMESPACES = 256
@@ -13,25 +19,11 @@ export function boundedArray<T>(
 }
 
 export function stringArray(value: unknown, maximum = MAX_ORCAD_MIGRATION_DORMANT_ROWS): string[] {
-  if (!Array.isArray(value) || value.length > maximum) {
-    throw new Error('orcad_migration_dormant_string_array_invalid')
-  }
-  const result = value.filter(isString)
-  if (
-    result.length !== value.length ||
-    result.some((entry) => !entry) ||
-    new Set(result).size !== result.length
-  ) {
-    throw new Error('orcad_migration_dormant_string_array_invalid')
-  }
-  return result
+  return boundedStringArray(value, maximum, 'orcad_migration_dormant_string_array_invalid')
 }
 
 export function assertUnique<T>(values: T[], key: (value: T) => string, label: string): void {
-  const keys = values.map(key)
-  if (new Set(keys).size !== keys.length) {
-    throw new Error(`orcad_migration_dormant_${label}_duplicate`)
-  }
+  assertUniqueKeys(values, key, `orcad_migration_dormant_${label}_duplicate`)
 }
 
 export function requiredRecord(value: unknown, error: string): Record<string, unknown> {
