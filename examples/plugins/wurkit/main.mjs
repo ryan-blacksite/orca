@@ -28,7 +28,10 @@ async function requestList(path, apiKey, signal) {
   if (!Array.isArray(body?.data?.items)) {
     throw new Error('Wurkit returned an invalid list response')
   }
-  return body.data.items
+  return {
+    items: body.data.items,
+    hasMore: typeof body.data.nextCursor === 'string' && body.data.nextCursor.length > 0
+  }
 }
 
 function encodeQuery(values) {
@@ -53,22 +56,25 @@ export default function activate(orca) {
     if (!apiKey) throw new Error('Add a Wurkit API key first')
     const projectId = args && typeof args.projectId === 'string' ? args.projectId : undefined
     const signal = AbortSignal.timeout(15000)
-    const [projects, agents, ticketsByStatus] = await Promise.all([
+    const [projectResult, agentResult, ticketsByStatus] = await Promise.all([
       requestList('/projects?limit=100', apiKey, signal),
       requestList('/agents?limit=100', apiKey, signal),
       Promise.all(
-        OPEN_STATUSES.map((status) =>
-          requestList(
+        OPEN_STATUSES.map(async (status) => ({
+          status,
+          ...(await requestList(
             `/packages${encodeQuery({ status, projectId, limit: PAGE_SIZE, fields: 'compact' })}`,
             apiKey,
             signal
-          )
-        )
+          ))
+        }))
       )
     ])
-    const assignees = new Map(agents.map((agent) => [agent.id, agent.displayName || agent.handle]))
+    const assignees = new Map(
+      agentResult.items.map((agent) => [agent.id, agent.displayName || agent.handle])
+    )
     const tickets = ticketsByStatus
-      .flat()
+      .flatMap((result) => result.items)
       .map((ticket) => ({
         id: ticket.id,
         identifier: ticket.identifier,
@@ -83,14 +89,17 @@ export default function activate(orca) {
       }))
       .sort((left, right) => (right.updatedAt || '').localeCompare(left.updatedAt || ''))
     return {
-      projects: projects.map((project) => ({
+      projects: projectResult.items.map((project) => ({
         id: project.id,
         slug: project.slug,
         identifierSlug: project.identifierSlug,
         name: project.name
       })),
       tickets,
-      ticketLimitPerStatus: PAGE_SIZE,
+      projectsTruncated: projectResult.hasMore,
+      truncatedStatuses: ticketsByStatus
+        .filter((result) => result.hasMore)
+        .map((result) => result.status),
       refreshedAt: new Date().toISOString()
     }
   })

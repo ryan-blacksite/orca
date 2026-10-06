@@ -201,12 +201,18 @@
           item.appendChild(button)
           ticketList.appendChild(item)
         })
-        statusEl.textContent = data.tickets.length
+        var notes = []
+        if (data.truncatedStatuses.length) {
+          notes.push('limited to 100 in: ' + data.truncatedStatuses.join(', '))
+        }
+        if (data.projectsTruncated) notes.push('project list limited to 100')
+        var summary = data.tickets.length
           ? 'Loaded ' +
             data.tickets.length +
             ' open tickets · updated ' +
             new Date(data.refreshedAt).toLocaleTimeString()
           : 'No open tickets for this project.'
+        statusEl.textContent = notes.length ? summary + ' · ' + notes.join(' · ') : summary
       }
 
       function loadTickets() {
@@ -235,7 +241,9 @@
           .catch(function (error) {
             var message = error instanceof Error ? error.message : String(error)
             if (/key first|API key|unauthorized|unauthenticated|HTTP 401/i.test(message)) {
-              showKeyForm('Save a Wurkit API key with projects.read and packages.read.')
+              showKeyForm(
+                'Save a Wurkit API key with projects.read, packages.read, and agents.read.'
+              )
             } else {
               showError(error)
             }
