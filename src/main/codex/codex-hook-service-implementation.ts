@@ -4,6 +4,7 @@ import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
 import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
 import { dedupeInFlightRun } from '../in-flight-run-dedupe'
 import { refreshManagedScriptIfPresent } from '../agent-hooks/managed-hook-script-refresh'
+import { writeManagedScript } from '../agent-hooks/installer-utils'
 import { getOrcaManagedCodexHomePath } from './codex-home-paths'
 import { getManagedScriptPath } from './codex-hook-definition'
 import {
@@ -25,6 +26,8 @@ import {
   readKnownCodexHookAnswer,
   resolveCodexHookAnswerForLaunch
 } from './codex-hook-hash-lookup'
+import { reconcileCodexHooks } from './codex-hook-reconcile'
+import { cleanupLegacyManagedHookRepresentations } from './codex-hook-legacy-cleanup'
 import {
   readEveryMemoizedCodexHookHashes,
   type CodexHookTrustAnswer
@@ -200,6 +203,22 @@ export class CodexHookService {
   /** Status read from a managed home's files, against what Codex last answered. */
   getStatus(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
     return readCodexHookHomeStatus(runtimeHomePath, readKnownCodexHookAnswer())
+  }
+
+  /**
+   * App start and the setting turning on: reconciles Orca's entry in ~/.codex,
+   * converting an older build's, then sweeps retired forms.
+   */
+  async reconcileHooks(): Promise<AgentHookInstallStatus> {
+    try {
+      // Why here too: like every managed agent's installer, it deploys its shared script.
+      writeManagedScript(getManagedScriptPath(), getManagedScript())
+    } catch (error) {
+      console.warn('[codex-hook-service] could not write the Codex hook script:', error)
+    }
+    await reconcileCodexHooks({ convertOlderForms: true })
+    await cleanupLegacyManagedHookRepresentations()
+    return this.getStatus()
   }
 
   // Why: runtimeHomePath defaults to the shared managed mirror, but a managed

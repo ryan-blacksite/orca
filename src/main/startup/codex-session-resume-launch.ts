@@ -1,4 +1,3 @@
-import { app } from 'electron'
 import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
 import type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
 import type { CodexSessionResumePreparation } from '../codex/codex-session-resume-home'
@@ -10,10 +9,7 @@ import {
 import { ManagedCodexHomeTemporarilyUnavailableError } from '../codex-accounts/host-codex-managed-home-ownership'
 import { codexHookService } from '../codex/hook-service'
 import { CODEX_HOOK_LAUNCH_WAIT_MS } from '../codex/codex-hook-hash-lookup'
-import {
-  awaitRealHomeCodexHookTrust,
-  ensureRealHomeCodexHookState
-} from '../codex/codex-real-home-hook-install'
+import { reconcileCodexHooksWithin } from '../codex/codex-hook-reconcile'
 import { ensureCodexDaemonSocketGuard } from '../codex/codex-config-mirror'
 import { isAgentStatusHooksEnabledForAgent } from '../agent-hooks/managed-agent-hook-controls'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from '../codex/codex-home-paths'
@@ -97,14 +93,10 @@ export async function prepareCodexSessionResumeForLaunch(args: {
       const hooksEnabled = isAgentStatusHooksEnabledForAgent(store.getSettings(), 'codex')
       try {
         if (isSystemHome) {
-          await ensureRealHomeCodexHookState({
-            hooksEnabled,
-            userDataPath: app.getPath('userData'),
-            writePolicy: 'add-missing-only'
-          })
-          // Why: beside an unapproved entry Codex opens a blocking hook-review screen,
-          // and only the grant's own settle cannot race Codex's approval write.
-          await awaitRealHomeCodexHookTrust()
+          // Why bounded: the resume waits only briefly for a reconcile; it runs on ~/.codex whatever the selection.
+          if (hooksEnabled) {
+            await reconcileCodexHooksWithin(CODEX_HOOK_LAUNCH_WAIT_MS, { realHomeLaunch: true })
+          }
         } else if (hooksEnabled) {
           await codexHookService.installForLaunchPrep(resumeHome, CODEX_HOOK_LAUNCH_WAIT_MS)
         } else {
