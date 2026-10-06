@@ -7,7 +7,6 @@ import type { CodexUsageStore } from '../codex-usage/store'
 import type { Store } from '../persistence'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import { AutomationService } from './service'
-import { observeHeadlessRunCompletion } from './headless-run-completion'
 import {
   getTuiAgentDetectCommands,
   isTuiAgent,
@@ -15,6 +14,8 @@ import {
 } from '../../shared/tui-agent-config'
 import { buildHeadlessAutomationWorktreeCreateArgs } from './headless-workspace-create'
 import { createRuntimeAutomationRunTerminalObserver } from './runtime-terminal-run-observer'
+
+const MAX_REMEMBERED_LAUNCHES = 256
 
 export function createRuntimeAutomationService(input: {
   store: Store
@@ -25,15 +26,28 @@ export function createRuntimeAutomationService(input: {
   headless: boolean
 }): AutomationService {
   const { store, runtime, claudeUsage, codexUsage } = input
+  // The handle each headless launch returned, so its watcher never depends on a pane-key lookup.
+  const launchedHandles = new Map<string, string>()
+  const observer = createRuntimeAutomationRunTerminalObserver(runtime, {
+    getAgentStatusRowsForPane: (paneKey) => runtime.getAgentStatusRowsForPane(paneKey),
+    agentCommandsForRun: (run) =>
+      automationAgentCommands(
+        store.listAutomations().find((entry) => entry.id === run.automationId)?.agentId
+      )
+  })
   const service = new AutomationService(store, {
     claudeUsage,
     codexUsage,
-    terminalObserver: createRuntimeAutomationRunTerminalObserver(runtime),
+    terminalObserver: {
+      ...observer,
+      resolveRunTerminal: (run) =>
+        observer.resolveRunTerminal(run) ??
+        (run.terminalPaneKey ? (launchedHandles.get(run.terminalPaneKey) ?? null) : null)
+    },
     onAutomationsChanged: (payload) => runtime.notifyAutomationsChanged(payload),
     allowRemoteHostScheduling: input.headless,
     headlessDispatcher: input.headless
       ? async ({ automation, run, target }) => {
-          const dispatchedAt = Date.now()
           let terminalHandle: string
           let terminalSessionId: string | null = null
           let terminalPaneKey: string | null = null
@@ -73,19 +87,19 @@ export function createRuntimeAutomationService(input: {
             const worktree = await runtime.showManagedWorktree(`id:${workspaceId}`)
             workspaceDisplayName = worktree.displayName ?? null
           }
-          const completion = observeHeadlessRunCompletion(runtime, {
-            handle: terminalHandle,
-            paneKey: terminalPaneKey,
-            dispatchedAt,
-            agentCommands: automationAgentCommands(automation.agentId)
-          })
+          if (terminalPaneKey) {
+            launchedHandles.set(terminalPaneKey, terminalHandle)
+            if (launchedHandles.size > MAX_REMEMBERED_LAUNCHES) {
+              launchedHandles.delete(launchedHandles.keys().next().value ?? '')
+            }
+          }
+          // No completion: the run's watcher observes it, retrying wait timeouts until it settles.
           return {
             workspaceId,
             workspaceDisplayName,
             terminalSessionId,
             terminalPaneKey,
-            terminalPtyId,
-            completion
+            terminalPtyId
           }
         }
       : undefined
@@ -94,7 +108,7 @@ export function createRuntimeAutomationService(input: {
   return service
 }
 
-function automationAgentCommands(agentId: string): string[] {
+function automationAgentCommands(agentId: string | undefined): string[] {
   if (!isTuiAgent(agentId)) {
     return []
   }
