@@ -3,6 +3,11 @@ import {
   resolveNativeChatAppearanceSettings,
   type NativeChatAppearanceSettings
 } from '../../../../shared/native-chat-appearance-settings'
+import {
+  keybindingMatchesAction,
+  type KeybindingInput,
+  type KeybindingOverrides
+} from '../../../../shared/keybindings'
 
 export function chatFontSizeForAction(
   appearance: NativeChatAppearanceSettings | undefined,
@@ -17,25 +22,18 @@ export function chatFontSizeForAction(
 
 export type ChatFontSizeAction = 'increase' | 'decrease' | 'reset' | null
 
-// Shift permits the + and _ variants on keyboard layouts that require it.
 export function chatFontSizeActionForEvent(
-  e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey'>,
-  isMac: boolean
+  input: KeybindingInput,
+  platform: NodeJS.Platform,
+  keybindings?: KeybindingOverrides
 ): ChatFontSizeAction {
-  const primary = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
-  if (!primary) {
-    return null
+  if (keybindingMatchesAction('zoom.in', input, platform, keybindings, { context: 'app' })) {
+    return 'increase'
   }
-  switch (e.key) {
-    case '=':
-    case '+':
-      return 'increase'
-    case '-':
-    case '_':
-      return 'decrease'
-    case '0':
-      return 'reset'
-    default:
-      return null
+  if (keybindingMatchesAction('zoom.out', input, platform, keybindings, { context: 'app' })) {
+    return 'decrease'
   }
+  return keybindingMatchesAction('zoom.reset', input, platform, keybindings, { context: 'app' })
+    ? 'reset'
+    : null
 }

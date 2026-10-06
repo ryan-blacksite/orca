@@ -2,33 +2,48 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NativeChatAppearanceSettings } from '../../../../shared/native-chat-appearance-settings'
+import type { KeybindingOverrides } from '../../../../shared/keybindings'
 
 const mocks = vi.hoisted(() => {
   const settings: { nativeChatAppearance?: NativeChatAppearanceSettings } = {}
   const updateSettings = vi.fn(async (updates: typeof settings) => {
     Object.assign(settings, updates)
   })
-  return { settings, updateSettings, web: true }
+  const bindings: { current?: KeybindingOverrides } = {}
+  return { settings, updateSettings, bindings, web: true }
 })
-vi.mock('../../store', () => ({ useAppStore: { getState: () => mocks } }))
+vi.mock('../../store', () => ({
+  useAppStore: { getState: () => ({ ...mocks, keybindings: mocks.bindings.current }) }
+}))
 import { useNativeChatFontSize } from './use-native-chat-font-size'
 vi.mock('@/lib/web-client-location', () => ({ isWebClientLocation: () => mocks.web }))
 import { isMacPlatform } from './native-chat-shortcut'
 
 function key(key: string, target: EventTarget = window): void {
+  const code =
+    key === '+'
+      ? 'Equal'
+      : key === '-' || key === '_'
+        ? 'Minus'
+        : key === '0'
+          ? 'Digit0'
+          : `Key${key.toUpperCase()}`
   target.dispatchEvent(
     new KeyboardEvent('keydown', {
       key,
+      code,
       bubbles: true,
       cancelable: true,
       metaKey: isMacPlatform(),
-      ctrlKey: !isMacPlatform()
+      ctrlKey: !isMacPlatform(),
+      shiftKey: key === '+' || key === '_'
     })
   )
 }
 afterEach(() => {
   cleanup()
   mocks.web = true
+  delete mocks.bindings.current
   delete mocks.settings.nativeChatAppearance
   mocks.updateSettings.mockClear()
 })
@@ -42,7 +57,7 @@ describe('persisted chat font-size shortcuts', () => {
       key('+')
       key('-')
     })
-    await waitFor(() => expect(mocks.updateSettings).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(mocks.updateSettings).toHaveBeenCalledTimes(2))
     expect(mocks.settings.nativeChatAppearance).toEqual({
       fontSize: 19,
       codeFontSize: 16,
@@ -82,8 +97,25 @@ describe('persisted chat font-size shortcuts', () => {
     renderHook(() => useNativeChatFontSize(true, { current: root }))
     key('+')
     expect(mocks.updateSettings).not.toHaveBeenCalled()
-    key('_', input)
+    key('-', input)
     await waitFor(() => expect(mocks.settings.nativeChatAppearance).toEqual({ fontSize: 13 }))
     root.remove()
+  })
+
+  it('handles configured web bindings and leaves old or disabled chords alone', async () => {
+    mocks.bindings.current = {
+      'zoom.in': ['Mod+Y'],
+      'zoom.out': ['Mod+U'],
+      'zoom.reset': []
+    }
+    renderHook(() => useNativeChatFontSize(true))
+    key('+')
+    key('0')
+    expect(mocks.updateSettings).not.toHaveBeenCalled()
+    key('y')
+    await waitFor(() => expect(mocks.settings.nativeChatAppearance).toEqual({ fontSize: 15 }))
+    key('u')
+    await waitFor(() => expect(mocks.settings.nativeChatAppearance).toBeUndefined())
+    expect(mocks.updateSettings).toHaveBeenCalledTimes(2)
   })
 })

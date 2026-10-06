@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import type { KeybindingOverrides } from '../../../../shared/keybindings'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { GlobalSettings } from '../../../../shared/global-settings-types'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
 import { AppearanceChatSection } from './AppearanceChatSection'
@@ -10,21 +11,40 @@ import { matchesSettingsSearch } from './settings-search'
 
 const mocks = vi.hoisted(
   (): {
-    state: { settingsSearchQuery: string; keybindings?: KeybindingOverrides }
+    state: {
+      settingsSearchQuery: string
+      keybindings?: KeybindingOverrides
+      settings: GlobalSettings | null
+      updateSettings: (updates: Partial<GlobalSettings>) => Promise<void>
+    }
     platform: NodeJS.Platform
-  } => ({ state: { settingsSearchQuery: '' }, platform: 'linux' })
+  } => ({
+    state: { settingsSearchQuery: '', settings: null, updateSettings: async () => {} },
+    platform: 'linux'
+  })
 )
 
 vi.mock('@/lib/shortcut-platform', () => ({ getShortcutPlatform: () => mocks.platform }))
 
 vi.mock('../../store', () => ({
-  useAppStore: (selector: (state: typeof mocks.state) => unknown) => selector(mocks.state)
+  useAppStore: Object.assign(
+    (selector: (state: typeof mocks.state) => unknown) => selector(mocks.state),
+    { getState: () => mocks.state }
+  )
 }))
 afterEach(() => {
   cleanup()
   mocks.state.keybindings = undefined
+  mocks.state.settings = null
   mocks.platform = 'linux'
 })
+
+function persistInMock(settings: GlobalSettings) {
+  mocks.state.settings = settings
+  return vi.fn(async (updates: Partial<GlobalSettings>) => {
+    mocks.state.settings = { ...mocks.state.settings!, ...updates }
+  })
+}
 
 describe('chat appearance settings card', () => {
   it.each([
@@ -80,8 +100,8 @@ describe('chat appearance settings card', () => {
     }
   )
 
-  it('uses derived defaults and writes overrides through the existing controls', () => {
-    const updateSettings = vi.fn()
+  it('uses derived defaults and combines quick edits to different controls', async () => {
+    const updateSettings = persistInMock(getDefaultSettings('/tmp'))
     render(
       <AppearanceChatSection
         settings={getDefaultSettings('/tmp')}
@@ -92,29 +112,35 @@ describe('chat appearance settings card', () => {
     expect(text.getAttribute('value')).toBe('14')
     fireEvent.change(text, { target: { value: '30' } })
     fireEvent.blur(text)
-    expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: { fontSize: 20 } })
     const code = screen.getByRole('spinbutton', { name: 'Code text size' })
     fireEvent.change(code, { target: { value: '16' } })
     fireEvent.keyDown(code, { key: 'Enter' })
-    expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: { codeFontSize: 16 } })
     fireEvent.click(screen.getByRole('radio', { name: 'Full' }))
-    expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: { width: 'full' } })
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(3))
+    expect(mocks.state.settings?.nativeChatAppearance).toEqual({
+      fontSize: 20,
+      codeFontSize: 16,
+      width: 'full'
+    })
   })
-  it('removes defaults while preserving other choices, and reset removes the entire object', () => {
-    const updateSettings = vi.fn()
+  it('resets only owned fields and preserves future settings', async () => {
     const settings = {
       ...getDefaultSettings('/tmp'),
-      nativeChatAppearance: { fontSize: 18, codeFontSize: 16, width: 'wide' as const }
+      nativeChatAppearance: {
+        fontSize: 18,
+        codeFontSize: 16,
+        width: 'wide' as const,
+        contrast: 151
+      }
     }
+    const updateSettings = persistInMock(settings)
     render(<AppearanceChatSection settings={settings} updateSettings={updateSettings} />)
     const text = screen.getByRole('spinbutton', { name: 'Text size' })
     fireEvent.change(text, { target: { value: '14' } })
     fireEvent.blur(text)
-    expect(updateSettings).toHaveBeenLastCalledWith({
-      nativeChatAppearance: { codeFontSize: 16, width: 'wide' }
-    })
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
-    expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: undefined })
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(2))
+    expect(mocks.state.settings?.nativeChatAppearance).toEqual({ contrast: 151 })
   })
   it('indexes each row and width choice in Appearance settings search', () => {
     const entries = getAppearancePaneSearchEntries()

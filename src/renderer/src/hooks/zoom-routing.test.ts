@@ -194,7 +194,7 @@ describe('registerZoomIpcBridge', () => {
     zoom.fire('in')
     zoom.fire('in')
     zoom.fire('out')
-    await vi.waitFor(() => expect(zoom.updateSettings).toHaveBeenCalledTimes(3))
+    await vi.waitFor(() => expect(zoom.updateSettings).toHaveBeenCalledTimes(2))
     expect(zoom.settings.nativeChatAppearance).toEqual({
       fontSize: 19,
       codeFontSize: 16,

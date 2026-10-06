@@ -1,5 +1,6 @@
 import {
   normalizeNativeChatAppearanceSettings,
+  resetNativeChatAppearanceSettings,
   resolveNativeChatAppearanceSettings,
   type NativeChatAppearanceSettings
 } from '../../../../shared/native-chat-appearance-settings'
@@ -10,6 +11,7 @@ import { Button } from '../ui/button'
 import { SearchableSetting } from './SearchableSetting'
 import { NumberField, SettingsRow, SettingsSegmentedControl } from './SettingsFormControls'
 import { getChatAppearanceEntriesByKey, getChatWidthOptions } from './chat-appearance-search'
+import { writeNativeChatAppearance } from '../native-chat/native-chat-appearance-write'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 
 export type AppearanceChatSectionProps = {
@@ -29,12 +31,10 @@ export function AppearanceChatSection({
   const decrease = formatPrimaryShortcutLabel('zoom.out', keybindings)
   const entries = getChatAppearanceEntriesByKey({ increase, decrease })
   const update = (updates: NativeChatAppearanceSettings): void => {
-    updateSettings({
-      nativeChatAppearance: normalizeNativeChatAppearanceSettings({
-        ...settings.nativeChatAppearance,
-        ...updates
-      })
-    })
+    void writeNativeChatAppearance(
+      (current) => normalizeNativeChatAppearanceSettings({ ...current, ...updates }),
+      updateSettings
+    )
   }
   return (
     <div className="divide-y divide-border/40">
@@ -86,7 +86,9 @@ export function AppearanceChatSection({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateSettings({ nativeChatAppearance: undefined })}
+              onClick={() =>
+                void writeNativeChatAppearance(resetNativeChatAppearanceSettings, updateSettings)
+              }
             >
               {translate('settings.appearance.chat.reset', 'Reset')}
             </Button>

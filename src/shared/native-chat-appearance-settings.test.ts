@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   normalizeNativeChatAppearanceSettings,
+  resetNativeChatAppearanceSettings,
   resolveNativeChatAppearanceSettings
 } from './native-chat-appearance-settings'
 
@@ -35,6 +36,20 @@ describe('native chat appearance normalization', () => {
       codeFontSize: 12,
       width: 'comfortable'
     })
+  })
+  it('resets only known controls while keeping settings from a newer version', () => {
+    const fromNewerVersion = {
+      fontSize: 18,
+      codeFontSize: 16,
+      width: 'wide' as const,
+      contrast: 151,
+      matchTerminalInterface: true
+    }
+    expect(resetNativeChatAppearanceSettings(fromNewerVersion)).toEqual({
+      contrast: 151,
+      matchTerminalInterface: true
+    })
+    expect(resetNativeChatAppearanceSettings({ fontSize: 18 })).toBeUndefined()
   })
   it('clamps and rounds values on read', () => {
     expect(

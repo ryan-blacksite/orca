@@ -2,7 +2,8 @@ import { useEffect, type RefObject } from 'react'
 import { chatFontSizeActionForEvent } from './native-chat-font-size'
 import { writeNativeChatFontSize } from './native-chat-font-size-write'
 import { isWebClientLocation } from '@/lib/web-client-location'
-import { isMacPlatform } from './native-chat-shortcut'
+import { getShortcutPlatform } from '@/lib/shortcut-platform'
+import { useAppStore } from '../../store'
 
 export function useNativeChatFontSize(
   enabled: boolean,
@@ -12,15 +13,18 @@ export function useNativeChatFontSize(
     if (!enabled || !isWebClientLocation()) {
       return
     }
-    const isMac = isMacPlatform()
+    const platform = getShortcutPlatform()
     const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.defaultPrevented) {
+        return
+      }
       if (
         rootRef?.current &&
         (!(e.target instanceof Node) || !rootRef.current.contains(e.target))
       ) {
         return
       }
-      const action = chatFontSizeActionForEvent(e, isMac)
+      const action = chatFontSizeActionForEvent(e, platform, useAppStore.getState().keybindings)
       if (!action) {
         return
       }

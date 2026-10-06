@@ -56,3 +56,15 @@ export function resolveNativeChatAppearanceSettings(
     width: normalized?.width ?? 'comfortable'
   }
 }
+
+export function resetNativeChatAppearanceSettings(
+  appearance: NativeChatAppearanceSettings | undefined
+): NativeChatAppearanceSettings | undefined {
+  return normalizeNativeChatAppearanceSettings(
+    Object.fromEntries(
+      Object.entries(appearance ?? {}).filter(
+        ([key]) => key !== 'fontSize' && key !== 'codeFontSize' && key !== 'width'
+      )
+    )
+  )
+}
