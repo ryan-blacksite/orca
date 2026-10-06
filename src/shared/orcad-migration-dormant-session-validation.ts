@@ -1,5 +1,6 @@
 import type { WorkspaceSessionState } from './workspace-session-state-types'
 import { parseWorkspaceSession } from './workspace-session-schema'
+import { ownedEditorFileId, paneBelongsToTerminalLayout } from './workspace-session-pane-ownership'
 
 export function parseOrcadMigrationDormantWorkspaceSession(value: unknown): WorkspaceSessionState {
   const parsed = parseWorkspaceSession(value)
@@ -208,46 +209,6 @@ export function assertOrcadMigrationDormantWorkspaceSessionReferences(args: {
     throw new Error('orcad_migration_dormant_workspace_session_live_or_client_state_invalid')
   }
 }
-
-function ownedEditorFileId(
-  filePath: string,
-  worktreeId: string,
-  runtimeEnvironmentId: string | null | undefined
-): string {
-  const runtimeKey = runtimeEnvironmentId?.trim() || 'local'
-  return `editor:${encodeURIComponent(worktreeId)}:${encodeURIComponent(runtimeKey)}:${encodeURIComponent(filePath)}`
-}
-
-function paneBelongsToTerminalLayout(
-  record: NonNullable<WorkspaceSessionState['sleepingAgentSessionsByPaneKey']>[string],
-  session: WorkspaceSessionState,
-  tabIds: ReadonlySet<string>
-): boolean {
-  const separator = record.paneKey.lastIndexOf(':')
-  if (separator < 1) {
-    return false
-  }
-  const tabId = record.paneKey.slice(0, separator)
-  const leafId = record.paneKey.slice(separator + 1)
-  if ((record.tabId !== undefined && record.tabId !== tabId) || !tabIds.has(tabId)) {
-    return false
-  }
-  return terminalLayoutContainsLeaf(session.terminalLayoutsByTabId[tabId]?.root, leafId)
-}
-
-function terminalLayoutContainsLeaf(
-  node: WorkspaceSessionState['terminalLayoutsByTabId'][string]['root'] | undefined,
-  leafId: string
-): boolean {
-  return Boolean(
-    node &&
-    (node.type === 'leaf'
-      ? node.leafId === leafId
-      : terminalLayoutContainsLeaf(node.first, leafId) ||
-        terminalLayoutContainsLeaf(node.second, leafId))
-  )
-}
-
 function assertOwnerRecordKeys(
   owns: (ownerKey: string) => boolean,
   records: (Record<string, unknown> | undefined)[]

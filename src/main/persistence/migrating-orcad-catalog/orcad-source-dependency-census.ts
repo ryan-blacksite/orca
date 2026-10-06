@@ -7,7 +7,6 @@ import type { PersistedState } from '../../../shared/persisted-state-types'
 import type { TerminalScrollbackSnapshotStorage } from '../../terminal-scrollback-snapshots'
 import {
   inspectOrcadMigrationSourceSessions,
-  orcadMigrationPaneBelongsToTabs,
   type OrcadMigrationSourceSessionInspection
 } from './orcad-source-session-dependencies'
 import { collectOrcadMigrationSourceDormantState } from './orcad-source-dormant-state'
@@ -17,6 +16,7 @@ import {
   orcadMigrationPartitionScope,
   type OrcadMigrationSourceScope
 } from './orcad-source-scope'
+import { paneBelongsToTabs } from '../../../shared/workspace-session-pane-ownership'
 
 export type OrcadMigrationSourceDependencyCensus = {
   totalCount: number
@@ -73,12 +73,12 @@ function countTerminalRecoveryState(
       orcadMigrationOwnerMatchesScope(entry.worktreeId, scope) ||
       (entry.tabId ? sessions.tabIds.has(entry.tabId) : false) ||
       sessions.ptyIds.has(entry.ptyId) ||
-      (entry.paneKey ? orcadMigrationPaneBelongsToTabs(entry.paneKey, sessions.tabIds) : false)
+      (entry.paneKey ? paneBelongsToTabs(entry.paneKey, sessions.tabIds) : false)
   ).length
   const aliases = state.legacyPaneKeyAliasEntries.filter(
     (entry) =>
-      orcadMigrationPaneBelongsToTabs(entry.legacyPaneKey, sessions.tabIds) ||
-      orcadMigrationPaneBelongsToTabs(entry.stablePaneKey, sessions.tabIds)
+      paneBelongsToTabs(entry.legacyPaneKey, sessions.tabIds) ||
+      paneBelongsToTabs(entry.stablePaneKey, sessions.tabIds)
   ).length
   return unsupported + aliases
 }

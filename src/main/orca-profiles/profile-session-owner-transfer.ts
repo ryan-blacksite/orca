@@ -16,6 +16,7 @@ export {
   buildMarkdownFrontmatterIdMap,
   markdownFileIdCandidates
 } from './profile-session-markdown-transfer'
+import { paneBelongsToTabs } from '../../shared/workspace-session-pane-ownership'
 
 export type SessionOwnerProjection = {
   mapOwnerKey: (ownerKey: string) => string | null
@@ -266,9 +267,4 @@ function mapUnifiedTab(tab: Tab, projection: SessionOwnerProjection): Tab {
 
 function mapTabGroup(group: TabGroup, projection: SessionOwnerProjection): TabGroup {
   return { ...structuredClone(group), worktreeId: projection.mapWorktreeId(group.worktreeId) }
-}
-
-function paneBelongsToTabs(paneKey: string, tabIds: ReadonlySet<string>): boolean {
-  const separator = paneKey.lastIndexOf(':')
-  return separator > 0 && tabIds.has(paneKey.slice(0, separator))
 }

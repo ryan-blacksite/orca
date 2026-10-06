@@ -65,15 +65,3 @@ function inspectSession(
     }
   }
 }
-
-export function orcadMigrationPaneBelongsToTabs(
-  paneKey: string,
-  tabIds: ReadonlySet<string>
-): boolean {
-  for (const tabId of tabIds) {
-    if (paneKey.startsWith(`${tabId}:`)) {
-      return true
-    }
-  }
-  return false
-}

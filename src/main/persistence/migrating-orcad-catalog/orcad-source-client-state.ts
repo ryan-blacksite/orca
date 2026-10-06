@@ -13,7 +13,6 @@ import type {
   PersistedState
 } from '../../../shared/persisted-state-types'
 import type { WorkspaceSessionState } from '../../../shared/workspace-session-state-types'
-import { orcadMigrationPaneBelongsToTabs } from './orcad-source-session-dependencies'
 import { sessionPartitions } from './orcad-source-workspace-session-fragments'
 import { collectCloseIntents } from './orcad-source-client-browser-intents'
 import {
@@ -22,6 +21,7 @@ import {
   orcadMigrationOwnsRepoId,
   unqualifyOrcadMigrationOwnerKey
 } from './orcad-source-scope'
+import { paneBelongsToTabs } from '../../../shared/workspace-session-pane-ownership'
 
 export type OrcadMigrationSourceClientStateInspection = {
   payload: OrcadMigrationClientStatePayload | undefined
@@ -203,10 +203,10 @@ function collectUiRouting(
   const acknowledgements = Object.entries(ui.acknowledgedAgentsByPaneKey ?? {}).filter(
     ([paneKey]) => {
       // Another host's acknowledgement is not this source's state to move or block on.
-      if (!orcadMigrationPaneBelongsToTabs(paneKey, sourceTabIds)) {
+      if (!paneBelongsToTabs(paneKey, sourceTabIds)) {
         return false
       }
-      const allowed = eligible ? orcadMigrationPaneBelongsToTabs(paneKey, eligible.tabIds) : false
+      const allowed = eligible ? paneBelongsToTabs(paneKey, eligible.tabIds) : false
       if (!allowed) {
         blockedCounts['ui-routing'] += 1
       }

@@ -1,4 +1,5 @@
 import type { WorkspaceSessionState } from '../../shared/workspace-session-state-types'
+import { ownedEditorFileId } from '../../shared/workspace-session-pane-ownership'
 
 type OwnerProjection = {
   mapOwnerKey: (ownerKey: string) => string | null
@@ -76,13 +77,4 @@ export function markdownFileIdCandidates(
   runtimeEnvironmentId: string | null | undefined
 ): ReadonlySet<string> {
   return new Set([filePath, ownedEditorFileId(filePath, worktreeId, runtimeEnvironmentId)])
-}
-
-function ownedEditorFileId(
-  filePath: string,
-  worktreeId: string,
-  runtimeEnvironmentId: string | null | undefined
-): string {
-  const runtimeKey = runtimeEnvironmentId?.trim() || 'local'
-  return `editor:${encodeURIComponent(worktreeId)}:${encodeURIComponent(runtimeKey)}:${encodeURIComponent(filePath)}`
 }
