@@ -170,6 +170,10 @@ describe('per-job path classification', () => {
     for (const file of [
       'src/main/codex/codex-hook-trust-derivation.ts',
       'src/main/codex/codex-hook-local-install.ts',
+      'src/main/codex/codex-real-home-hook-install.ts',
+      'src/main/codex/codex-real-home-hook-entry-plan.ts',
+      'src/main/codex/codex-real-home-hooks-json.ts',
+      'src/main/codex/codex-user-hook-trust-moves.ts',
       'src/main/codex/config-toml-hook-trust-edit.ts',
       'src/main/codex-cli/codex-read-only-app-server-args.ts',
       'src/main/codex/codex-app-server-capability-signal.ts',
