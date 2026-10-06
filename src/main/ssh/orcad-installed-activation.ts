@@ -14,10 +14,10 @@ import {
   readOrcadActivationRecord,
   writeOrcadActivationRecord
 } from './orcad-activation-record-store'
-import { evaluateOrcadActivation } from './orcad-activation-gate'
+import { launchAndJudgeOrcadSlot } from './orcad-candidate-launch-verdict'
 import { planOrcadUpdate } from './orcad-update-plan'
 import { CURRENT_ORCAD_DAEMON_PROTOCOL } from './orcad-daemon-protocol-crossing'
-import { ORCAD_LOG_FILENAME, type OrcadReadinessParse } from './orcad-remote-launch'
+import { ORCAD_LOG_FILENAME } from './orcad-remote-launch'
 import {
   captureOrcadStateSnapshotCommand,
   orcadSnapshotDirName,
@@ -26,10 +26,7 @@ import {
 import { joinRemotePath } from './ssh-remote-platform'
 import { computeLocalOrcadBuildHash } from './orcad-local-build-hash'
 import { preflightInstalledOrcad } from './orcad-remote-preflight'
-import {
-  orcadActivationTransactionRoot,
-  type OrcadActivationLockControl
-} from './orcad-activation-lock'
+import type { OrcadActivationLockControl } from './orcad-activation-lock'
 import type { OrcadActivateTransaction } from './orcad-activation-transaction'
 import {
   createOrcadActivationTransaction,
@@ -38,11 +35,7 @@ import {
   withOrcadActivationSnapshot
 } from './orcad-activation-transaction-transitions'
 import { writeOrcadActivationTransaction } from './orcad-activation-transaction-store'
-import {
-  execOrcadRemoteOr,
-  launchOrcadAndAwaitReadiness,
-  withoutAbortSignal
-} from './orcad-remote-runtime-control'
+import { execOrcadRemoteOr, withoutAbortSignal } from './orcad-remote-runtime-control'
 import {
   initialOrcadActivationAdmissionCommand,
   parseInitialOrcadActivationAdmission
@@ -194,27 +187,10 @@ export async function activateInstalledOrcad(
   transaction = withOrcadActivationSnapshot(transaction, capture, now())
   await writeOrcadActivationTransaction(options, transaction)
 
-  let parsed: OrcadReadinessParse | null = null
-  let launchError: unknown
-  try {
-    parsed = await launchOrcadAndAwaitReadiness(options, {
-      remoteInstallDir: remoteDir,
-      nodePath: options.nodePath,
-      fullVersion,
-      userDataDir: options.userDataDir,
-      bindHost: options.bindHost,
-      port: options.port,
-      activationRoot: orcadActivationTransactionRoot(options.host, options.remoteHome)
-    })
-  } catch (error) {
-    if (isUnconfirmedSshCommandTermination(error)) {
-      throw error
-    }
-    launchError = error
-  }
-  const verdict = evaluateOrcadActivation(parsed?.state === 'ready' ? parsed.readiness : null, {
-    buildHash: computeLocalOrcadBuildHash(options.localOrcadDir),
-    fullVersion
+  const { verdict, launchError } = await launchAndJudgeOrcadSlot(options, {
+    remoteInstallDir: remoteDir,
+    fullVersion,
+    buildHash: computeLocalOrcadBuildHash(options.localOrcadDir)
   })
   if (verdict.decision === 'reject') {
     const [code, reason] =
