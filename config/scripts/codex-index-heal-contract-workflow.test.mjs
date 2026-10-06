@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { parse } from 'yaml'
 import { describe, expect, it } from 'vitest'
+import { classifyPrJobs } from './pr-code-change-scope.mjs'
 
 describe('Codex index-heal contract PR gate', () => {
   const workflow = parse(readFileSync('.github/workflows/pr.yml', 'utf8'))
@@ -86,5 +87,16 @@ describe('Codex index-heal contract PR gate', () => {
     expect(latest.run).toContain(
       'ORCA_CODEX_HOOK_CONTRACT_BINARY="$RUNNER_TEMP/codex-cli-latest/node_modules/.bin/codex"'
     )
+  })
+
+  it("runs the hook contract when Orca's ~/.codex writer changes", () => {
+    for (const file of [
+      'src/main/codex/codex-real-home-hook-install.ts',
+      'src/main/codex/codex-real-home-hook-entry-plan.ts',
+      'src/main/codex/codex-real-home-hooks-json.ts',
+      'src/main/codex/codex-user-hook-trust-moves.ts'
+    ]) {
+      expect(classifyPrJobs([file]).codex_index_heal_contract).toBe(true)
+    }
   })
 })
