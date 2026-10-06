@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
+import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { ChatSettingsSection } from './ChatSettingsSection'
 import { ActiveSettingsSectionProvider } from './SettingsSection'
 import { getChatAppearanceSearchEntries } from './chat-appearance-search'
@@ -10,19 +11,30 @@ import { buildCmdJSettingsResults } from '../cmd-j/palette-results'
 import { isSettingsNavigationTarget } from '@/lib/settings-navigation-types'
 import { getSettingsSectionId, getSettingsScrollTarget } from './settings-navigation-foundations'
 
-const state = vi.hoisted(() => ({ settingsSearchQuery: '' }))
+const state = vi.hoisted((): { settingsSearchQuery: string; settings: GlobalSettings | null } => ({
+  settingsSearchQuery: '',
+  settings: null
+}))
 vi.mock('../../store', () => ({
-  useAppStore: (selector: (value: typeof state) => unknown) => selector(state)
+  useAppStore: Object.assign((selector: (value: typeof state) => unknown) => selector(state), {
+    getState: () => state
+  })
 }))
 
 afterEach(cleanup)
 beforeEach(() => {
   state.settingsSearchQuery = ''
+  state.settings = null
 })
 
 function renderChat(enabled: boolean | undefined) {
-  const updateSettings = vi.fn()
   const settings = { ...getDefaultSettings('/tmp'), experimentalStructuredNativeChat: enabled }
+  state.settings = settings
+  const updateSettings = vi.fn(async (updates: Partial<GlobalSettings>) => {
+    if (state.settings) {
+      state.settings = { ...state.settings, ...updates }
+    }
+  })
   const element = (active = 'chat') => (
     <ActiveSettingsSectionProvider value={active}>
       <ChatSettingsSection
@@ -43,7 +55,7 @@ describe('Chat settings page', () => {
     expect(container.querySelector('[data-native-chat-appearance-preview]')).toBeNull()
   })
 
-  it('renders the existing controls under Appearance and writes the same settings', () => {
+  it('renders the existing controls under Appearance and writes the same settings', async () => {
     const { container, updateSettings } = renderChat(true)
     expect(screen.getByRole('heading', { name: 'Chat', level: 2 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Appearance', level: 3 })).toBeTruthy()
@@ -57,9 +69,13 @@ describe('Chat settings page', () => {
     )
     expect(screen.getByRole('radio', { name: 'Comfortable' })).toBeTruthy()
     fireEvent.click(screen.getByRole('radio', { name: 'Wide' }))
-    expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: { width: 'wide' } })
+    await waitFor(() =>
+      expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: { width: 'wide' } })
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
-    expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: undefined })
+    await waitFor(() =>
+      expect(updateSettings).toHaveBeenLastCalledWith({ nativeChatAppearance: undefined })
+    )
   })
 
   it('unmounts the page when the opt-in is disabled while it is selected', () => {
