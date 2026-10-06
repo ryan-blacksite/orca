@@ -12,6 +12,7 @@ import {
   readTerminalScrollbackStoredBytesSync,
   type TerminalScrollbackSnapshotStorage
 } from '../../terminal-scrollback-snapshots'
+import { compareKeys } from './orcad-source-scope'
 
 export type ProjectedOrcadMigrationScrollback = {
   session: WorkspaceSessionState
@@ -162,8 +163,4 @@ function sessionPartitions(state: PersistedState): WorkspaceSessionState[] {
   return [state.workspaceSession, ...Object.values(state.workspaceSessionsByHostId ?? {})].filter(
     (session): session is WorkspaceSessionState => session !== undefined
   )
-}
-
-function compareKeys(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
 }

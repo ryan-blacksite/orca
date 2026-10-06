@@ -14,6 +14,7 @@ import { collectOrcadMigrationRetiredWorktreeNamespaces } from './orcad-source-r
 import { collectOrcadMigrationSourceAutomationState } from './orcad-source-automation-state'
 import { collectOrcadMigrationSourceWorkspaceSession } from './orcad-source-workspace-session'
 import {
+  compareKeys,
   createOrcadMigrationSourceScope,
   orcadMigrationOwnerMatchesScope,
   unqualifyOrcadMigrationOwnerKey
@@ -248,8 +249,4 @@ function emptyBlockedCounts(): Record<TransferredDormantKind, number> {
     'ui-routing': 0,
     'saved-port-forward': 0
   }
-}
-
-function compareKeys(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
 }

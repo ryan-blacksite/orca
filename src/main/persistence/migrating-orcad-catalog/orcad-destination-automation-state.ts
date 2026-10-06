@@ -4,8 +4,8 @@ import {
   type Automation,
   type AutomationRun
 } from '../../../shared/automations-types'
-import { serializeOrcadMigrationValue } from '../../../shared/orcad-migration-manifest'
 import type { PersistedState } from '../../../shared/persisted-state-types'
+import { selectNewRows } from './orcad-dormant-state-records'
 
 export type PreparedOrcadMigrationAutomationState = {
   incomingAutomations: Automation[]
@@ -21,8 +21,16 @@ export function prepareOrcadMigrationAutomationState(
 ): PreparedOrcadMigrationAutomationState {
   const incomingAutomations = (automations ?? []).map((entry) => structuredClone(entry))
   const incomingRuns = (runs ?? []).map((entry) => structuredClone(entry))
-  const newAutomations = selectNewRows(incomingAutomations, state.automations, 'automation')
-  const newRuns = selectNewRows(incomingRuns, state.automationRuns, 'automation_run')
+  const newAutomations = selectNewRows(
+    incomingAutomations,
+    state.automations,
+    dormantConflict('automation')
+  )
+  const newRuns = selectNewRows(
+    incomingRuns,
+    state.automationRuns,
+    dormantConflict('automation_run')
+  )
   assertRunOwnersExist(incomingAutomations, incomingRuns, state.automations)
   assertRunRetentionCapacity(incomingAutomations, incomingRuns, state.automationRuns)
   return { incomingAutomations, incomingRuns, newAutomations, newRuns }
@@ -38,18 +46,6 @@ export function applyPreparedOrcadMigrationAutomationState(
   if (prepared.newRuns.length > 0) {
     state.automationRuns = [...state.automationRuns, ...prepared.newRuns]
   }
-}
-
-function selectNewRows<T extends { id: string }>(incoming: T[], existing: T[], label: string): T[] {
-  const existingById = new Map(existing.map((entry) => [entry.id, entry]))
-  return incoming.filter((entry) => {
-    const current = existingById.get(entry.id)
-    if (!current) {
-      return true
-    }
-    assertSameValue(current, entry, `${label}:${entry.id}`)
-    return false
-  })
 }
 
 function assertRunOwnersExist(
@@ -93,8 +89,6 @@ function assertRunRetentionCapacity(
   }
 }
 
-function assertSameValue(left: unknown, right: unknown, label: string): void {
-  if (serializeOrcadMigrationValue(left) !== serializeOrcadMigrationValue(right)) {
-    throw new Error(`orcad_migration_dormant_id_conflict:${label}`)
-  }
+function dormantConflict(label: string): (id: string) => string {
+  return (id) => `orcad_migration_dormant_id_conflict:${label}:${id}`
 }

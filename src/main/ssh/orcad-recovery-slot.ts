@@ -186,7 +186,7 @@ export async function quiesceInterruptedOrcadSlot(
   return 'exited'
 }
 
-async function slotLiveness(
+export async function slotLiveness(
   options: OrcadSlotOptions,
   remoteDir: string
 ): Promise<'LIVE' | 'DEAD' | 'UNKNOWN'> {

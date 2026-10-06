@@ -22,12 +22,11 @@ import { joinRemotePath } from './ssh-remote-platform'
 const WAKE_OWNER_FILENAME = '.orca-wake-owner'
 import { readOrcadActivationTransaction } from './orcad-activation-transaction-store'
 import { isUnconfirmedSshCommandTermination } from './ssh-relay-deploy-helpers'
-import { orcadLivenessProbeCommand, parseOrcadLiveness } from './orcad-remote-launch'
-import { execOrcadRemote } from './orcad-remote-runtime-control'
 import {
   ensureOrcadSlotServing,
   orcadSlotDir,
   resolveOrcadSlotIdentity,
+  slotLiveness,
   type OrcadSlotOptions
 } from './orcad-recovery-slot'
 
@@ -46,7 +45,7 @@ export async function wakeStoppedManagedOrcad(
   if (!before.active) {
     return { outcome: 'not-activated' }
   }
-  const liveness = await slotLiveness(options, before.active)
+  const liveness = await slotLiveness(options, orcadSlotDir(options, before.active))
   if (liveness !== 'DEAD') {
     return { outcome: liveness === 'LIVE' ? 'serving' : 'unverifiable' }
   }
@@ -123,16 +122,4 @@ async function releaseOwnInterruptedWakeFence(
   await releaseOrcadActivationFence(options)
   interruptedWakes.delete(host)
   return true
-}
-
-async function slotLiveness(
-  options: OrcadSlotOptions,
-  version: string
-): Promise<'LIVE' | 'DEAD' | 'UNKNOWN'> {
-  return parseOrcadLiveness(
-    await execOrcadRemote(
-      options,
-      orcadLivenessProbeCommand(options.host, orcadSlotDir(options, version))
-    )
-  )
 }

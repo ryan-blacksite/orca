@@ -9,6 +9,11 @@ import type { Repo } from '../../../shared/repo-types'
 import { normalizeRuntimePathForComparison } from '../../../shared/cross-platform-path'
 import { assertOrcadMigrationStagedCatalogClaims } from './orcad-staged-catalog-claims'
 import {
+  toOrcadDestinationFolderWorkspace,
+  toOrcadDestinationProjectGroup,
+  toOrcadDestinationRepository
+} from './orcad-destination-catalog-projection'
+import {
   syncProjectHostSetupCompatibilityState,
   type RepoLifecycleOperations
 } from '../loading-store/repo-lifecycle-operations'
@@ -16,7 +21,8 @@ import type { StoreRuntimeState } from '../loading-store/store-runtime-state'
 import {
   applyPreparedOrcadMigrationDormantState,
   prepareOrcadMigrationDormantState,
-  type PreparedOrcadMigrationDormantState
+  type PreparedOrcadMigrationDormantState,
+  selectNewRows
 } from './orcad-dormant-state-records'
 
 export type PreparedOrcadMigrationCatalog = {
@@ -47,12 +53,16 @@ export function prepareOrcadMigrationCatalog(
   const repositories = manifest.payload.repositories.map(toOrcadDestinationRepository)
   const projectGroups = manifest.payload.projectGroups.map(toOrcadDestinationProjectGroup)
   const folderWorkspaces = manifest.payload.folderWorkspaces.map(toOrcadDestinationFolderWorkspace)
-  const newRepositories = selectNewRows(repositories, state.repos, 'repository')
-  const newProjectGroups = selectNewRows(projectGroups, state.projectGroups, 'project_group')
+  const newRepositories = selectNewRows(repositories, state.repos, catalogConflict('repository'))
+  const newProjectGroups = selectNewRows(
+    projectGroups,
+    state.projectGroups,
+    catalogConflict('project_group')
+  )
   const newFolderWorkspaces = selectNewRows(
     folderWorkspaces,
     state.folderWorkspaces,
-    'folder_workspace'
+    catalogConflict('folder_workspace')
   )
   assertNoRepositoryPathConflicts(repositories, state.repos)
   assertCatalogReferences({
@@ -108,40 +118,8 @@ export function assertOrcadMigrationReceiptMatchesManifest(
   }
 }
 
-export function toOrcadDestinationRepository(source: Repo): Repo {
-  const destination = structuredClone(source)
-  delete destination.connectionId
-  delete destination.executionHostId
-  return destination
-}
-
-export function toOrcadDestinationProjectGroup(source: ProjectGroup): ProjectGroup {
-  const destination = structuredClone(source)
-  destination.connectionId = null
-  delete destination.executionHostId
-  return destination
-}
-
-export function toOrcadDestinationFolderWorkspace(source: FolderWorkspace): FolderWorkspace {
-  const destination = structuredClone(source)
-  destination.connectionId = null
-  delete destination.executionHostId
-  destination.linkedTaskSourceContext ??= null
-  return destination
-}
-
-function selectNewRows<T extends { id: string }>(incoming: T[], existing: T[], label: string): T[] {
-  const existingById = new Map(existing.map((row) => [row.id, row]))
-  return incoming.filter((row) => {
-    const current = existingById.get(row.id)
-    if (!current) {
-      return true
-    }
-    if (serializeOrcadMigrationValue(current) !== serializeOrcadMigrationValue(row)) {
-      throw new Error(`orcad_migration_${label}_id_conflict:${row.id}`)
-    }
-    return false
-  })
+function catalogConflict(label: string): (id: string) => string {
+  return (id) => `orcad_migration_${label}_id_conflict:${id}`
 }
 
 function assertNoRepositoryPathConflicts(incoming: Repo[], existing: Repo[]): void {

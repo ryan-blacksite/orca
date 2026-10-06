@@ -12,11 +12,12 @@ import type {
 import type { PersistedState } from '../../../shared/persisted-state-types'
 import type { TaskSourceContext, WorkspaceRunContext } from '../../../shared/task-source-context'
 import {
+  compareKeys,
   createOrcadMigrationSourceScope,
   orcadMigrationOwnerMatchesScope,
   orcadMigrationOwnsRepoId,
-  unqualifyOrcadMigrationOwnerKey,
-  type OrcadMigrationSourceScope
+  type OrcadMigrationSourceScope,
+  unqualifyOrcadMigrationOwnerKey
 } from './orcad-source-scope'
 
 export type OrcadMigrationSourceAutomationInspection = {
@@ -186,8 +187,4 @@ function projectContextToDestination<T extends WorkspaceRunContext | TaskSourceC
 
 function projectOwnerToDestination(value: string | null): string | null {
   return value === null ? null : unqualifyOrcadMigrationOwnerKey(value)
-}
-
-function compareKeys(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
 }

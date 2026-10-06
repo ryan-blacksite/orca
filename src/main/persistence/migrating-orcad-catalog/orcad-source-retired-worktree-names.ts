@@ -16,6 +16,7 @@ import {
   retirementHostIdentity,
   retirementNamespaceKeysToRead
 } from '../../worktree-retirement-namespace'
+import { compareKeys } from './orcad-source-scope'
 
 const EMPTY_REGISTRY: RetiredNameRegistry = { exhaustedTiers: 0, names: [] }
 
@@ -74,8 +75,4 @@ export function collectOrcadMigrationRetiredWorktreeNamespaces(
       registry: entry.registry
     }))
     .sort((left, right) => compareKeys(left.namespaceKey, right.namespaceKey))
-}
-
-function compareKeys(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0
 }
