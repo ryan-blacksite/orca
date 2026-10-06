@@ -52,14 +52,12 @@ function snapshotOf(tail: readonly string[]): AutomationRunOutputSnapshot | null
 }
 
 /** A satisfied wait judged by the run's agent evidence; null while the agent may still start. */
-async function judgeSatisfiedWait(
-  runtime: AutomationRunTerminalHost,
-  handle: string,
+async function judgeIdleTail(
+  tail: readonly string[],
   evidence: AutomationRunAgentEvidence,
   run: AutomationRun,
   runStartedAt: number
 ): Promise<AutomationRunCompletionObservation | null> {
-  const tail = await readTail(runtime, handle)
   const verdict = judgeIdleRun(evidence, run, tail, runStartedAt, Date.now())
   if (verdict.kind === 'wait') {
     return null
@@ -67,6 +65,33 @@ async function judgeSatisfiedWait(
   return verdict.kind === 'completed'
     ? { status: 'completed', outputSnapshot: snapshotOf(tail), error: null }
     : { status: 'dispatch_failed', outputSnapshot: snapshotOf(tail), error: verdict.error }
+}
+
+/**
+ * After a satisfied wait inside the agent-start window. An idle shell never produces a new idle
+ * edge, so a fresh wait would only time out; instead the pane stays idle while its output is
+ * unchanged, and that state is re-judged until the window passes or the agent reports.
+ * Null once the pane changes: something is running, so the caller waits again.
+ */
+async function settleIdlePane(
+  runtime: AutomationRunTerminalHost,
+  handle: string,
+  judged: { evidence: AutomationRunAgentEvidence; run: AutomationRun },
+  runStartedAt: number,
+  signal: AbortSignal
+): Promise<AutomationRunCompletionObservation | null> {
+  const idleTail = (await readTail(runtime, handle)).join('\n')
+  for (;;) {
+    const tail = await readTail(runtime, handle)
+    if (tail.join('\n') !== idleTail) {
+      return null
+    }
+    const observation = await judgeIdleTail(tail, judged.evidence, judged.run, runStartedAt)
+    if (observation) {
+      return observation
+    }
+    await sleep(AGENT_EVIDENCE_POLL_INTERVAL_MS, signal)
+  }
 }
 
 function isTerminalWaitTimeout(error: unknown): boolean {
@@ -221,17 +246,10 @@ export function createRuntimeAutomationRunTerminalObserver(
           if (!judged || !wait.satisfied) {
             return await buildObservation(runtime, handle, wait)
           }
-          const observation = await judgeSatisfiedWait(
-            runtime,
-            handle,
-            judged.evidence,
-            judged.run,
-            runStartedAt
-          )
+          const observation = await settleIdlePane(runtime, handle, judged, runStartedAt, signal)
           if (observation) {
             return observation
           }
-          await sleep(AGENT_EVIDENCE_POLL_INTERVAL_MS, signal)
         } catch (error) {
           // Why: tui-idle waits expire on their own schedule; an agent still
           // working past that window is live, so re-arm rather than fail it.

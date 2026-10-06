@@ -11,8 +11,10 @@ const PANE_KEY = 'tab-1:pane-1'
 const RUNTIME_TUI_IDLE_TIMEOUT_MS = 5 * 60 * 1000
 
 /** A pane where idle is idle whatever painted it: a ready shell prompt satisfies tui-idle too. */
-function createPane(initial: { idle: boolean; tail: string[] }) {
+function createPane(initial: { idle: boolean; tail: string[]; idleEdgeOnly?: boolean }) {
   let idle = initial.idle
+  // The real runtime may settle tui-idle once per idle edge: an already-idle shell only times out.
+  let edgeSpent = false
   let tail = initial.tail
   let rows: { receivedAt: number }[] = []
   const waiters = new Set<() => void>()
@@ -23,7 +25,8 @@ function createPane(initial: { idle: boolean; tail: string[] }) {
       if (options?.signal?.aborted) {
         return Promise.reject(new Error('request_aborted'))
       }
-      if (idle) {
+      if (idle && !(initial.idleEdgeOnly && edgeSpent)) {
+        edgeSpent = true
         return Promise.resolve({ satisfied: true })
       }
       return new Promise((resolve, reject) => {
@@ -131,6 +134,17 @@ describe('observing a run with agent evidence', () => {
     await vi.advanceTimersByTimeAsync(AGENT_START_GRACE_MS + 1_000)
     await run.promise
     expect(run.settled).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
+  })
+
+  it('completes an agent that exited before the window once the window passes, not at a wait timeout', async () => {
+    // The stub ran, exited 0 and left an idle shell; no agent status, no new idle edge.
+    const pane = createPane({ idle: true, tail: ['stub done', '$'], idleEdgeOnly: true })
+    const run = observe(pane)
+    await vi.advanceTimersByTimeAsync(AGENT_START_GRACE_MS - 1_000)
+    expect(run.settled).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(run.settled).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
+    expect(run.failed).not.toHaveBeenCalled()
   })
 
   it('keeps watching an agent past a tui-idle wait timeout and completes it later', async () => {
