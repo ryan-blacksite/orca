@@ -36,6 +36,10 @@ let rerun = false
 let convertRequested = false
 let realHomeLaunchRequested = false
 let spawnReconcileScheduled = false
+let rerunOnAnswer = false
+
+// Why short: a pending lookup must leave room in a launch's 3 s wait for the stopgap write.
+const ANSWER_WAIT_MS = 500
 
 /** App start, main process only: the settings readers, and the first reconcile once PATH is hydrated. */
 export function startCodexHookReconcile(
@@ -85,14 +89,19 @@ export async function reconcileCodexHooksWithin(
   timeoutMs: number,
   request: Omit<ReconcileRequest, 'after'> = {}
 ): Promise<void> {
+  await settleWithin(reconcileCodexHooks(request), timeoutMs)
+}
+
+async function settleWithin<T>(work: Promise<T>, timeoutMs: number): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout> | undefined
-  await Promise.race([
-    reconcileCodexHooks(request),
-    new Promise<void>((resolve) => {
-      timer = setTimeout(resolve, timeoutMs)
+  const result = await Promise.race([
+    work,
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs)
     })
   ])
   clearTimeout(timer)
+  return result
 }
 
 /**
@@ -143,14 +152,23 @@ async function reconcileOnce(request: {
   if (!current?.isEnabled() || !(request.realHomeLaunch || current.usesRealHome())) {
     return
   }
-  const answer = await resolveCodexHookHashes()
-  if (!answer.hashes && isDefinitiveCodexHookAnswer(answer)) {
+  const lookup = resolveCodexHookHashes()
+  const answer = await settleWithin(lookup, ANSWER_WAIT_MS)
+  if (!answer && !rerunOnAnswer) {
+    // Why: the stopgap below goes in now, as main's did; Codex's hash replaces it once it answers.
+    rerunOnAnswer = true
+    void lookup.then(() => {
+      rerunOnAnswer = false
+      void reconcileCodexHooks({ realHomeLaunch: request.realHomeLaunch })
+    })
+  }
+  if (answer && !answer.hashes && isDefinitiveCodexHookAnswer(answer)) {
     // Why nothing: this Codex cannot approve Orca's entry (no hooks/list); status says to update it.
     return
   }
   const computedHashes = computeOrcaCodexHookHashes()
   await reconcileRealHomeCodexHookEntries({
-    hashes: answer.hashes,
+    hashes: answer?.hashes ?? null,
     knownOrcaHashes: [computedHashes, ...readEveryMemoizedCodexHookHashes()],
     computedHashes,
     isEnabled: () => config?.isEnabled() === true,
@@ -167,6 +185,7 @@ export const _internals = {
     convertRequested = false
     realHomeLaunchRequested = false
     spawnReconcileScheduled = false
+    rerunOnAnswer = false
   },
   /** Settles once no reconcile runs. */
   async settledForTesting(): Promise<void> {
