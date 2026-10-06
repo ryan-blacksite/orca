@@ -71,15 +71,16 @@ describe('contrast drag persistence', () => {
       expect(settings.nativeChatAppearance).toBeUndefined()
     }
     fireEvent.pointerUp(slider)
-    await waitFor(() =>
+    await waitFor(() => {
       expect(updateSettings).toHaveBeenCalledExactlyOnceWith({
         nativeChatAppearance: { contrast: 130 }
       })
-    )
+      expect(mock.state.settings?.nativeChatAppearance?.contrast).toBe(130)
+    })
     const mix = preview?.style.getPropertyValue('--chat-foreground-mix')
     rerender(
       <AppearanceChatSection
-        settings={{ ...settings, nativeChatAppearance: { contrast: 130 } }}
+        settings={mock.state.settings ?? settings}
         updateSettings={updateSettings}
       />
     )
